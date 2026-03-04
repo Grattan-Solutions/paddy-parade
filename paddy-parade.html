@@ -1,0 +1,3249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Paddy's Parade Day Adventure</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #0a1a0a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  #wrapper {
+    position: relative;
+    width: min(100vw, calc(100vh * 4/3));
+    height: min(100vh, calc(100vw * 3/4));
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<div id="wrapper">
+  <canvas id="game" width="320" height="240"></canvas>
+</div>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════════
+// SECTION 1: CONSTANTS & PALETTE
+// ═══════════════════════════════════════════════════════════════════
+
+const W = 320, H = 240, VIEWPORT_H = 195, INVENTORY_Y = 195, INVENTORY_H = 45;
+
+const PALETTE = {
+  bgGreen:     '#0a1a0a',
+  grassGreen:  '#2d6a2d',
+  emerald:     '#00aa44',
+  gold:        '#ffd700',
+  white:       '#f0f0e8',
+  stone:       '#c8a87a',
+  wood:        '#5a3010',
+  sky:         '#1a3a5c',
+  popupBg:     'rgba(10,30,10,0.95)',
+  popupBorder: '#55ff55',
+  darkGreen:   '#004422',
+  orange:      '#ff8800',
+  red:         '#cc2200',
+  grey:        '#888888',
+  lightGrey:   '#cccccc',
+  brown:       '#8b4513',
+  black:       '#111111',
+  cream:       '#fff8dc',
+  blue:        '#4488cc',
+  purple:      '#884488',
+};
+
+const LUCKY_COINS = [
+  { id: 'coin_pub',        scene: 'pub',        x: 58,  y: 125, dialogue: "☘ Fun Fact: The first St. Patrick's Day parade in America was held in Boston in 1737 — over a century before Scranton's parade began!" },
+  { id: 'coin_cathedral',  scene: 'cathedral',  x: 295, y: 135, dialogue: "☘ Fun Fact: St. Peter's Cathedral was built by Irish immigrant stonemasons in 1880. They used Scranton's own Nay Aug brownstone!" },
+  { id: 'coin_steamtown',  scene: 'steamtown',  x: 65,  y: 158, dialogue: "☘ Fun Fact: The Irish worked as 'powder monkeys' in the coal mines — their job was to set the dynamite charges. Dangerous work!" },
+  { id: 'coin_lackawanna', scene: 'lackawanna', x: 20,  y: 125, dialogue: "☘ Fun Fact: The Electric City sign was nearly demolished in 1974! Local citizens rallied to save it. Today it's on the National Register of Historic Places." },
+  { id: 'coin_parade',     scene: 'parade',     x: 290, y: 130, dialogue: "☘ Fun Fact: The Scranton St. Patrick's Parade has run every year since 1962 — rain, snow, or shine. It draws over 20,000 spectators!" },
+];
+
+const QUESTION_BANK = [
+  // ── EASY (difficulty 1) ─────────────────────────────────────────
+  { id: 'q_color_green', scene: 'pub', difficulty: 1,
+    question: "What color is MOST associated with St. Patrick's Day?",
+    options: ['Blue', 'Red', 'Green', 'Orange'], correct: 2,
+    hint: "Think of shamrocks! Though blue was actually St. Patrick's original color." },
+  { id: 'q_month_march', scene: 'parade', difficulty: 1,
+    question: "In what month does St. Patrick's Day take place?",
+    options: ['January', 'February', 'March', 'April'], correct: 2,
+    hint: "St. Patrick's Day is March 17th!" },
+  { id: 'q_shamrock_plant', scene: 'cathedral', difficulty: 1,
+    question: "What three-leafed plant did St. Patrick use to teach the Holy Trinity?",
+    options: ['Clover', 'Shamrock', 'Fern', 'Thistle'], correct: 1,
+    hint: "St. Patrick used it to explain Father, Son, and Holy Spirit as one God." },
+  { id: 'q_erin_go_bragh', scene: 'parade', difficulty: 1,
+    question: "What does 'Erin Go Bragh' mean?",
+    options: ["Happy St. Patrick's Day", 'Ireland Forever', 'The Emerald Isle', 'Good Luck Ireland'], correct: 1,
+    hint: "It comes from Irish 'Éire go Brách' — Ireland until the end of time!" },
+  { id: 'q_patron_ireland', scene: 'pub', difficulty: 1,
+    question: "What country is St. Patrick the patron saint of?",
+    options: ['England', 'Scotland', 'Ireland', 'Wales'], correct: 2,
+    hint: "He drove the snakes out — well, legend says so!" },
+  { id: 'q_shamrock_leaves', scene: 'cathedral', difficulty: 1,
+    question: "How many leaves does a shamrock have?",
+    options: ['Two', 'Three', 'Four', 'Five'], correct: 1,
+    hint: "A four-leaf clover is rare and lucky, but a shamrock specifically has three." },
+  { id: 'q_wear_green', scene: 'pub', difficulty: 1,
+    question: "What color is traditionally worn on St. Patrick's Day?",
+    options: ['Green', 'Blue', 'Red', 'Yellow'], correct: 0,
+    hint: "You'll get pinched if you forget to wear it!" },
+  { id: 'q_ceili_meaning', scene: 'pub', difficulty: 1,
+    question: "What does 'céilí' mean?",
+    options: ['A pub', 'A castle', 'An Irish dance/gathering', 'A parade'], correct: 2,
+    hint: "It's a traditional Irish social gathering with music and dancing." },
+  { id: 'q_scranton_streets', scene: 'parade', difficulty: 1,
+    question: "On which streets does the Scranton St. Patrick's Parade march?",
+    options: ['Mulberry & Wyoming', 'Main & Elm', 'Spruce & Adams', 'Penn & Linden'], correct: 0,
+    hint: "Look at the street signs right here at the parade!" },
+  { id: 'q_anthracite_what', scene: 'steamtown', difficulty: 1,
+    question: "What is anthracite?",
+    options: ['A type of rock', 'A type of hard coal', 'An Irish dance', 'A railroad car'], correct: 1,
+    hint: "Scranton was built on it — the Wyoming Valley is famous for it." },
+  { id: 'q_leprechaun_guard', scene: 'parade', difficulty: 1,
+    question: "What is a leprechaun said to guard?",
+    options: ['A tree', 'A castle', 'A pot of gold', 'A rainbow'], correct: 2,
+    hint: "Find the end of the rainbow and you might catch one!" },
+  { id: 'q_pub_short_for', scene: 'pub', difficulty: 1,
+    question: "What is 'pub' short for?",
+    options: ['Public bar', 'Public house', 'Public park', 'Public hall'], correct: 1,
+    hint: "It's a place open to the public — a house for socializing." },
+  { id: 'q_great_famine', scene: 'cathedral', difficulty: 1,
+    question: "During the Great Famine, Irish people fled which country?",
+    options: ['Ireland', 'England', 'Scotland', 'France'], correct: 0,
+    hint: "The potato blight devastated their homeland in the mid-1800s." },
+  { id: 'q_steamtown_preserves', scene: 'steamtown', difficulty: 1,
+    question: "What does Steamtown National Historic Site preserve?",
+    options: ['Coal mines', 'Steam railroad history', 'Irish culture', 'Electric history'], correct: 1,
+    hint: "Those big iron locomotives are a clue!" },
+  { id: 'q_erin_means', scene: 'parade', difficulty: 1,
+    question: "What does 'Erin' mean in Irish?",
+    options: ['Green', 'Beautiful', 'Ireland', 'Lucky'], correct: 2,
+    hint: "It's a poetic name for the island itself." },
+
+  // ── MEDIUM (difficulty 2) ────────────────────────────────────────
+  { id: 'q_patrick_origin', scene: 'pub', difficulty: 2,
+    question: "Where was St. Patrick originally from before going to Ireland?",
+    options: ['France', 'Roman Britain / Wales', 'Scotland', 'Spain'], correct: 1,
+    hint: "He was born around 385 AD in Roman Britain, likely in Wales or Scotland." },
+  { id: 'q_irish_flag', scene: 'cathedral', difficulty: 2,
+    question: "What are the three colors of the Irish flag?",
+    options: ['Green, White & Blue', 'Green, Gold & White', 'Red, White & Green', 'Green, White & Orange'], correct: 3,
+    hint: "Green for Catholics, Orange for Protestants, White for peace between them." },
+  { id: 'q_electric_city', scene: 'steamtown', difficulty: 2,
+    question: "Why is Scranton called the 'Electric City'?",
+    options: ['Most power plants', 'First electric streetcars in 1886', 'Famous electric factory', 'Lightning rods on buildings'], correct: 1,
+    hint: "On November 30, 1886, Scranton became the first US city to run electric streetcars." },
+  { id: 'q_fiddle', scene: 'pub', difficulty: 2,
+    question: "What musical instrument is central to traditional Irish music?",
+    options: ['Guitar', 'Trumpet', 'Fiddle / Violin', 'Piano'], correct: 2,
+    hint: "The fiddle is the heartbeat of every céilí and session!" },
+  { id: 'q_streetcar_year', scene: 'steamtown', difficulty: 2,
+    question: "What year did Scranton first run electric streetcars?",
+    options: ['1900', '1876', '1920', '1886'], correct: 3,
+    hint: "The Scranton Suburban Railway made history that autumn." },
+  { id: 'q_famine_years', scene: 'cathedral', difficulty: 2,
+    question: "In which years did the Great Irish Famine occur?",
+    options: ['1845–1852', '1800–1810', '1870–1880', '1900–1910'], correct: 0,
+    hint: "A potato blight caused massive starvation and emigration to America." },
+  { id: 'q_scranton_name', scene: 'parade', difficulty: 2,
+    question: "What is the city of Scranton named after?",
+    options: ['A Native word for river', 'A Welsh word for town', 'The Scranton family of mine owners', 'An English inventor'], correct: 2,
+    hint: "George and Selden Scranton founded the city in the 1840s." },
+  { id: 'q_first_parade_year', scene: 'parade', difficulty: 2,
+    question: "What year was Scranton's first St. Patrick's Day Parade?",
+    options: ['1920', '1962', '1848', '1886'], correct: 1,
+    hint: "It began the same year JFK was president — and hasn't stopped since!" },
+  { id: 'q_anthracite_used_for', scene: 'steamtown', difficulty: 2,
+    question: "What did anthracite coal primarily power in the 1800s–1900s?",
+    options: ['Home heating and industry', 'Ships and planes', 'Farming equipment', 'Street lamps only'], correct: 0,
+    hint: "It burned hot and clean — perfect for heating homes and running furnaces." },
+  { id: 'q_irish_built', scene: 'cathedral', difficulty: 2,
+    question: "What did Irish immigrants build in Scranton and across Pennsylvania?",
+    options: ['Only churches', 'Railroads, mines, and buildings', 'Only roads', 'Only schools'], correct: 1,
+    hint: "They came with strong backs and built the whole industrial foundation." },
+  { id: 'q_top_o_morning', scene: 'pub', difficulty: 2,
+    question: "What is 'Top o' the mornin'' ?",
+    options: ["A hat style", "A toast before drinking", "An Irish greeting", "A type of beer"], correct: 2,
+    hint: "The full phrase is 'Top o' the mornin' to ye!' — a cheery hello." },
+  { id: 'q_bodhran', scene: 'pub', difficulty: 2,
+    question: "What is a 'bodhrán'?",
+    options: ['An Irish stew', 'An Irish frame drum', 'An Irish bagpipe', 'An Irish violin'], correct: 1,
+    hint: "It's a shallow drum played with a tipper and heard at every session." },
+  { id: 'q_st_pats_date', scene: 'parade', difficulty: 2,
+    question: "St. Patrick's Day falls on March what?",
+    options: ['14th', '17th', '20th', '25th'], correct: 1,
+    hint: "It's the traditional date of St. Patrick's death in 461 AD." },
+  { id: 'q_wyoming_valley', scene: 'steamtown', difficulty: 2,
+    question: "What is the Wyoming Valley historically known for?",
+    options: ['Anthracite coal', 'Timber logging', 'Glass manufacturing', 'Steel production'], correct: 0,
+    hint: "The valley sits on one of the world's largest anthracite deposits." },
+  { id: 'q_scranton_peak_pop', scene: 'steamtown', difficulty: 2,
+    question: "Approximately what was Scranton's population at its peak (around 1930)?",
+    options: ['About 50,000', 'About 80,000', 'About 140,000', 'About 300,000'], correct: 2,
+    hint: "The mining and railroad boom brought tens of thousands of immigrants." },
+
+  // ── HARD (difficulty 3) ─────────────────────────────────────────
+  { id: 'q_cathedral_year', scene: 'cathedral', difficulty: 3,
+    question: "In what year was St. Peter's Cathedral in Scranton completed?",
+    options: ['1860', '1900', '1884', '1920'], correct: 2,
+    hint: "It took decades to build and was completed in the 1880s." },
+  { id: 'q_slainte', scene: 'pub', difficulty: 3,
+    question: "What does 'Sláinte' mean?",
+    options: ['Health (a toast)', 'Goodbye', 'Ireland Forever', 'Good luck'], correct: 0,
+    hint: "Raise your glass and say it — it's the Irish/Scottish word for health." },
+  { id: 'q_county_emigrated', scene: 'cathedral', difficulty: 3,
+    question: "Many Scranton Irish emigrated from which counties in Ireland?",
+    options: ['County Dublin', 'County Mayo and County Cork', 'County Kerry', 'County Clare'], correct: 1,
+    hint: "The western counties were hit hardest by the Famine." },
+  { id: 'q_patrick_birth_name', scene: 'pub', difficulty: 3,
+    question: "What was St. Patrick's birth name?",
+    options: ['Maewyn Succat', "Patrick O'Brien", 'Coroticus', 'Palladius'], correct: 0,
+    hint: "He took the name Patricius (Patrick) after becoming a bishop." },
+  { id: 'q_orange_flag', scene: 'cathedral', difficulty: 3,
+    question: "What does the orange stripe in the Irish flag represent?",
+    options: ['The Irish Republic', 'Catholicism', 'Ulster Protestants', 'The British Empire'], correct: 2,
+    hint: "William of Orange was the Protestant king — that's the connection." },
+  { id: 'q_craic', scene: 'pub', difficulty: 3,
+    question: "What does 'craic' mean in Irish slang?",
+    options: ['A type of bread', 'Fun, news, good times', 'A small boat', 'A musical instrument'], correct: 1,
+    hint: "'Great craic!' means a fantastic time was had by all." },
+  { id: 'q_steamtown_nhs_year', scene: 'steamtown', difficulty: 3,
+    question: "What year did Steamtown become a National Historic Site?",
+    options: ['1960', '1970', '1976', '1986'], correct: 3,
+    hint: "It was designated the same year as the Statue of Liberty centennial." },
+  { id: 'q_nay_aug', scene: 'parade', difficulty: 3,
+    question: "What does 'Nay Aug' mean in the Lenape language?",
+    options: ['Tall mountain', 'Swift waters', 'Green valley', 'Dark forest'], correct: 1,
+    hint: "The Nay Aug Gorge in Scranton takes its name from the original inhabitants." },
+  { id: 'q_streetcar_full_name', scene: 'steamtown', difficulty: 3,
+    question: "What was the full name of Scranton's first electric streetcar line?",
+    options: ['Scranton Electric Transit', 'Scranton City Railway', 'Scranton Suburban Railway', 'Wyoming Valley Railway'], correct: 2,
+    hint: "It ran from Scranton to the suburbs — revolutionary in 1886." },
+  { id: 'q_iron_city', scene: 'parade', difficulty: 3,
+    question: "What nickname did Scranton have BEFORE being called 'Electric City'?",
+    options: ['The Iron City', 'The Coal City', 'The Steel City', 'The Smoke City'], correct: 0,
+    hint: "Iron manufacturing came before the electric streetcar era." },
+  { id: 'q_scranton_founders', scene: 'parade', difficulty: 3,
+    question: "Who founded the city of Scranton?",
+    options: ['William Penn', 'George and Selden Scranton', 'The Molly Maguires', 'The Irish Brotherhood'], correct: 1,
+    hint: "Brothers who brought the iron industry to the Lackawanna Valley in the 1840s." },
+  { id: 'q_molly_maguires', scene: 'steamtown', difficulty: 3,
+    question: "Who were the Molly Maguires?",
+    options: ['An Irish dance troupe', 'A marching band', "A secret Irish miners' resistance group", 'A railroad company'], correct: 2,
+    hint: "They fought dangerous working conditions in the coal mines — controversially." },
+  { id: 'q_lackawanna_railroad', scene: 'steamtown', difficulty: 3,
+    question: "What year was the Delaware, Lackawanna and Western Railroad founded?",
+    options: ['1800', '1832', '1860', '1886'], correct: 1,
+    hint: "It connected the coal regions to New York and was an industrial giant." },
+  { id: 'q_great_seal_ireland', scene: 'cathedral', difficulty: 3,
+    question: "What does the Great Seal of Ireland depict?",
+    options: ['A golden harp on blue', 'A shamrock on green', 'A lion on red', 'An eagle on white'], correct: 0,
+    hint: "The harp is Ireland's national emblem — it even appears on euro coins." },
+  { id: 'q_pog_mo_thoin', scene: 'pub', difficulty: 3,
+    question: "What does the Irish phrase 'Póg mo thóin' humorously translate to?",
+    options: ['Kiss the Blarney Stone', 'Good morning to you', 'Kiss my rear end', 'Good health always'], correct: 2,
+    hint: "It's a cheeky phrase — probably best saved for close friends!" },
+];
+
+// ═══════════════════════════════════════════════════════════════════
+// SECTION 2: GAME STATE
+// ═══════════════════════════════════════════════════════════════════
+
+class GameState {
+  constructor() {
+    this.flags = {};
+    this.score = 0;
+  }
+  setFlag(name, value = true) { this.flags[name] = value; }
+  getFlag(name) { return this.flags[name] || false; }
+  addScore(pts) { this.score += pts; }
+  reset() { this.flags = {}; this.score = 0; }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SECTION 3: INPUT (unified pointer events)
+// ═══════════════════════════════════════════════════════════════════
+
+class Input {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.x = 0; this.y = 0;
+    this._tapped = false;
+    this._tapX = 0; this._tapY = 0;
+    this._consumed = false;
+
+    const scale = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const sx = W / rect.width;
+      const sy = H / rect.height;
+      const cx = (e.clientX !== undefined ? e.clientX : e.touches[0].clientX);
+      const cy = (e.clientX !== undefined ? e.clientY : e.touches[0].clientY);
+      return {
+        x: Math.floor((cx - rect.left) * sx),
+        y: Math.floor((cy - rect.top) * sy)
+      };
+    };
+
+    canvas.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      const p = scale(e);
+      this.x = p.x; this.y = p.y;
+      this._tapped = true;
+      this._tapX = p.x; this._tapY = p.y;
+      this._consumed = false;
+    }, { passive: false });
+
+    canvas.addEventListener('pointermove', (e) => {
+      e.preventDefault();
+      const p = scale(e);
+      this.x = p.x; this.y = p.y;
+    }, { passive: false });
+  }
+
+  consumeTap() {
+    if (this._tapped && !this._consumed) {
+      this._consumed = true;
+      this._tapped = false;
+      return { x: this._tapX, y: this._tapY };
+    }
+    return null;
+  }
+
+  peekTap() {
+    return this._tapped && !this._consumed
+      ? { x: this._tapX, y: this._tapY }
+      : null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SECTION 4: SPRITE HELPERS
+// ═══════════════════════════════════════════════════════════════════
+
+function roundRect(ctx, x, y, w, h, r, fill, stroke) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.stroke(); }
+}
+
+function drawPaddy(ctx, x, y, dir = 1, animFrame = 0, celebrate = false) {
+  ctx.save();
+  ctx.translate(x, y);
+  if (dir < 0) ctx.scale(-1, 1);
+
+  // Ground shadow (radial gradient)
+  const sg = ctx.createRadialGradient(0, 0, 1, 0, 0, 9);
+  sg.addColorStop(0, 'rgba(0,0,0,0.30)');
+  sg.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = sg;
+  ctx.beginPath(); ctx.ellipse(0, 0, 9, 3, 0, 0, Math.PI * 2); ctx.fill();
+
+  const legOff = celebrate ? Math.sin(animFrame * 0.5) * 4 : (animFrame % 2 === 0 ? 2 : -2);
+  const armAng  = celebrate ? -1.1 : (animFrame % 2 === 0 ? 0.15 : -0.15);
+
+  // Legs (rounded rectangles)
+  roundRect(ctx, -5, -13 + legOff, 4, 13, 2, PALETTE.darkGreen, null);
+  roundRect(ctx, 1,  -13 - legOff, 4, 13, 2, PALETTE.darkGreen, null);
+
+  // Shoes with shine
+  roundRect(ctx, -6.5, legOff - 3,  6, 3, 1.5, '#4a2208', null);
+  roundRect(ctx,  0.5, -legOff - 3, 6, 3, 1.5, '#4a2208', null);
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.beginPath(); ctx.arc(-4,  legOff - 1.5, 1, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc( 3, -legOff - 1.5, 1, 0, Math.PI * 2); ctx.fill();
+
+  // Body (emerald rounded rect)
+  roundRect(ctx, -6, -22, 12, 12, 3, PALETTE.emerald, '#006633');
+  // Lapels
+  ctx.fillStyle = '#eef0e8';
+  ctx.beginPath(); ctx.moveTo(-1,-22); ctx.lineTo(-5,-16); ctx.lineTo(-1,-16); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo( 1,-22); ctx.lineTo( 5,-16); ctx.lineTo( 1,-16); ctx.closePath(); ctx.fill();
+  // Gold buckle on jacket
+  roundRect(ctx, -2, -17, 4, 3, 0.5, PALETTE.gold, '#886600');
+
+  // Arms (rotated rounded rects)
+  if (celebrate) {
+    ctx.save(); ctx.translate(-9, -23); ctx.rotate(-armAng);
+    roundRect(ctx, -2, 0, 4, 9, 2, PALETTE.emerald, null); ctx.restore();
+    ctx.save(); ctx.translate( 9, -23); ctx.rotate( armAng);
+    roundRect(ctx, -2, 0, 4, 9, 2, PALETTE.emerald, null); ctx.restore();
+  } else {
+    ctx.save(); ctx.translate(-9, -21); ctx.rotate(-armAng);
+    roundRect(ctx, -2, 0, 4, 9, 2, PALETTE.emerald, null); ctx.restore();
+    ctx.save(); ctx.translate( 9, -21); ctx.rotate( armAng);
+    roundRect(ctx, -2, 0, 4, 9, 2, PALETTE.emerald, null); ctx.restore();
+  }
+
+  // Head (circle, skin tone with highlight)
+  ctx.fillStyle = '#f5c892';
+  ctx.beginPath(); ctx.arc(0, -27, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#d4a870'; ctx.lineWidth = 0.5; ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  ctx.beginPath(); ctx.arc(-2, -30, 2, 0, Math.PI * 2); ctx.fill();
+
+  // Eyes (sclera + iris)
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(-2, -28, 1.3, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc( 2, -28, 1.3, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#222';
+  ctx.beginPath(); ctx.arc(-2, -28, 0.7, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc( 2, -28, 0.7, 0, Math.PI * 2); ctx.fill();
+  // Blush
+  ctx.fillStyle = 'rgba(255,80,80,0.22)';
+  ctx.beginPath(); ctx.arc(-3.5, -26, 1.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc( 3.5, -26, 1.5, 0, Math.PI * 2); ctx.fill();
+  // Smile arc
+  ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(0, -26.5, 2.5, 0.2, Math.PI - 0.2); ctx.stroke();
+
+  // Beard (golden ellipse arc)
+  ctx.fillStyle = '#cc9900';
+  ctx.beginPath(); ctx.ellipse(0, -22.5, 4, 2.5, 0, 0, Math.PI); ctx.fill();
+
+  // Hat
+  ctx.save();
+  if (celebrate) ctx.rotate(0.15);
+  // Crown (gradient dark green → lighter)
+  const hg = ctx.createLinearGradient(-5, -44, 5, -32);
+  hg.addColorStop(0, '#002a14'); hg.addColorStop(1, '#005a2a');
+  roundRect(ctx, -5, -44, 10, 11, 2, null, null);
+  ctx.fillStyle = hg; ctx.fill();
+  ctx.strokeStyle = '#001a0a'; ctx.lineWidth = 0.5; ctx.stroke();
+  // Brim (trapezoid)
+  ctx.fillStyle = '#003a18';
+  ctx.beginPath(); ctx.moveTo(-8,-33); ctx.lineTo(8,-33); ctx.lineTo(6,-31); ctx.lineTo(-6,-31); ctx.closePath(); ctx.fill();
+  // Hat band (gold stripe)
+  ctx.fillStyle = PALETTE.gold;
+  ctx.fillRect(-5, -36, 10, 2.5);
+  // Buckle on hat
+  roundRect(ctx, -2, -37.5, 4, 4, 1, PALETTE.gold, '#886600');
+  ctx.restore();
+
+  ctx.restore();
+}
+
+function drawNPC(ctx, x, y, type, animFrame = 0, facing = 1) {
+  ctx.save();
+  ctx.translate(x, y);
+  if (facing !== 1) { ctx.scale(-1, 1); }
+
+  // Helper: draw eye pair (white sclera + dark iris)
+  function npcEyes(ex, ey) {
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(ex - 2, ey, 1.3, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(ex + 2, ey, 1.3, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#222';
+    ctx.beginPath(); ctx.arc(ex - 2, ey, 0.7, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(ex + 2, ey, 0.7, 0, Math.PI * 2); ctx.fill();
+  }
+
+  if (type === 'siobhan') {
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath(); ctx.ellipse(0, 0, 8, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+    // Legs
+    roundRect(ctx, -4, -12, 3, 12, 1.5, '#333', null);
+    roundRect(ctx,  1, -12, 3, 12, 1.5, '#333', null);
+    // Skirt (flared trapezoid)
+    ctx.fillStyle = '#004422';
+    ctx.beginPath(); ctx.moveTo(-8,0); ctx.lineTo(-6,-22); ctx.lineTo(6,-22); ctx.lineTo(8,0); ctx.closePath(); ctx.fill();
+    // White apron over skirt
+    ctx.fillStyle = 'rgba(240,240,220,0.9)';
+    ctx.beginPath(); ctx.moveTo(-4,-2); ctx.lineTo(-3,-20); ctx.lineTo(3,-20); ctx.lineTo(4,-2); ctx.closePath(); ctx.fill();
+    // Blouse
+    roundRect(ctx, -5, -32, 10, 11, 3, '#006644', '#004422');
+    // Arms
+    roundRect(ctx, -8, -32, 4, 9, 2, '#006644', null);
+    ctx.save(); ctx.translate(6, -28); ctx.rotate(0.3);
+    roundRect(ctx, -2, 0, 4, 9, 2, '#006644', null); ctx.restore();
+    // Mug in right hand
+    roundRect(ctx, 9, -26, 6, 5, 1, '#c8a87a', '#886644');
+    ctx.strokeStyle = '#886644'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(12, -23, 2.5, -0.4, 0.4); ctx.stroke();
+    // Head (circle)
+    ctx.fillStyle = '#f0c888';
+    ctx.beginPath(); ctx.arc(0, -38, 6.5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#d4a870'; ctx.lineWidth = 0.5; ctx.stroke();
+    // Hair bun (arc shape on top)
+    ctx.fillStyle = '#cc3300';
+    ctx.beginPath(); ctx.arc(0, -44, 5, Math.PI, 0); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, -44, 3, 0, Math.PI * 2); ctx.fill();
+    // Side hair arcs
+    ctx.beginPath(); ctx.arc(-6.5, -40, 3, 0.5, Math.PI - 0.5); ctx.fill();
+    ctx.beginPath(); ctx.arc( 6.5, -40, 3, 0.5, Math.PI - 0.5); ctx.fill();
+    // Eyes & smile
+    npcEyes(0, -38);
+    ctx.strokeStyle = '#cc4444'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(0, -36.5, 2.5, 0.2, Math.PI - 0.2); ctx.stroke();
+  }
+
+  else if (type === 'father_callahan') {
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath(); ctx.ellipse(0, 0, 8, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+    // Cassock (flared robe with curved hem)
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.moveTo(-8, 0); ctx.bezierCurveTo(-10, -5, -9, -30, -8, -32);
+    ctx.lineTo(8, -32); ctx.bezierCurveTo(9, -30, 10, -5, 8, 0);
+    ctx.closePath(); ctx.fill();
+    // White collar
+    roundRect(ctx, -3, -32, 6, 5, 1, PALETTE.white, '#ccc');
+    // Cross on chest
+    ctx.strokeStyle = PALETTE.gold; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(0, -28); ctx.lineTo(0, -23); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-2.5, -26); ctx.lineTo(2.5, -26); ctx.stroke();
+    // Arms (cassock sleeves)
+    roundRect(ctx, -11, -32, 4, 12, 2, '#1a1a1a', null);
+    roundRect(ctx,  7, -32, 4, 12, 2, '#1a1a1a', null);
+    // Rosary (small dots on left arm)
+    ctx.fillStyle = '#888';
+    for (let i = 0; i < 4; i++) {
+      ctx.beginPath(); ctx.arc(-9, -28 + i * 2.5, 0.8, 0, Math.PI * 2); ctx.fill();
+    }
+    // Head
+    ctx.fillStyle = '#e8c8a0';
+    ctx.beginPath(); ctx.arc(0, -39, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#c8a880'; ctx.lineWidth = 0.5; ctx.stroke();
+    // Grey tonsure hair (arc)
+    ctx.fillStyle = '#aaa';
+    ctx.beginPath(); ctx.arc(0, -39, 6, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#e8c8a0';
+    ctx.beginPath(); ctx.arc(0, -41, 3.5, 0, Math.PI * 2); ctx.fill();
+    // Eyes & gentle smile
+    npcEyes(0, -39);
+    ctx.strokeStyle = '#aa8866'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(0, -37.5, 2.5, 0.2, Math.PI - 0.2); ctx.stroke();
+  }
+
+  else if (type === 'seamus') {
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath(); ctx.ellipse(0, 0, 8, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+    // Boots
+    roundRect(ctx, -5, -3,  5, 3, 1.5, '#2a1a0a', null);
+    roundRect(ctx,  1, -3,  5, 3, 1.5, '#2a1a0a', null);
+    // Legs
+    roundRect(ctx, -4, -12, 3, 10, 1.5, '#4a4a6a', null);
+    roundRect(ctx,  1, -12, 3, 10, 1.5, '#4a4a6a', null);
+    // Overalls body
+    roundRect(ctx, -6, -28, 12, 17, 3, '#4a6a8a', '#2a4a6a');
+    // Overalls straps
+    ctx.fillStyle = '#4a6a8a';
+    ctx.fillRect(-3, -34, 2, 7); ctx.fillRect(1, -34, 2, 7);
+    // Shirt
+    roundRect(ctx, -5, -37, 10, 10, 2, '#cc8844', null);
+    // Arms
+    roundRect(ctx, -9, -37, 4, 11, 2, '#cc8844', null);
+    // Right arm holds pipe
+    ctx.save(); ctx.translate(6, -35); ctx.rotate(0.4);
+    roundRect(ctx, -2, 0, 4, 11, 2, '#cc8844', null); ctx.restore();
+    // Pipe in hand
+    ctx.strokeStyle = '#5a3010'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(9, -28); ctx.lineTo(14, -26); ctx.stroke();
+    ctx.beginPath(); ctx.arc(14, -25, 2, 0, Math.PI * 2); ctx.stroke();
+    // Head (weathered)
+    ctx.fillStyle = '#d4a87a';
+    ctx.beginPath(); ctx.arc(0, -43, 6.5, 0, Math.PI * 2); ctx.fill();
+    // Wrinkle lines
+    ctx.strokeStyle = '#b0906a'; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(-3, -44); ctx.lineTo(-4.5, -44); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo( 3, -44); ctx.lineTo( 4.5, -44); ctx.stroke();
+    // Grey flat cap (arc-based)
+    ctx.fillStyle = '#888';
+    ctx.beginPath(); ctx.arc(0, -44, 6.5, Math.PI, 0); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0, -44, 8.5, 2, 0, 0, Math.PI * 2); ctx.fill();
+    // Bushy grey beard (larger ellipse)
+    ctx.fillStyle = '#aaa';
+    ctx.beginPath(); ctx.ellipse(0, -38.5, 5.5, 3.5, 0, 0, Math.PI); ctx.fill();
+    // Eyes
+    npcEyes(0, -43);
+  }
+
+  else if (type === 'maggie') {
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath(); ctx.ellipse(0, 0, 8, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+    // Legs
+    roundRect(ctx, -3, -12, 3, 12, 1.5, '#333', null);
+    roundRect(ctx,  1, -12, 3, 12, 1.5, '#333', null);
+    // Skirt (flared)
+    ctx.fillStyle = PALETTE.emerald;
+    ctx.beginPath(); ctx.moveTo(-8,0); ctx.lineTo(-6,-18); ctx.lineTo(6,-18); ctx.lineTo(8,0); ctx.closePath(); ctx.fill();
+    // Orange safety vest
+    roundRect(ctx, -6, -30, 12, 13, 3, '#ff6600', '#cc4400');
+    // Arms
+    roundRect(ctx, -9, -30, 4, 11, 2, '#ff6600', null);
+    // Right arm holding clipboard
+    ctx.save(); ctx.translate(5, -30); ctx.rotate(0.1);
+    roundRect(ctx, -2, 0, 4, 11, 2, '#ff6600', null); ctx.restore();
+    // Clipboard
+    roundRect(ctx, 7, -27, 8, 11, 1, PALETTE.cream, '#888');
+    roundRect(ctx, 8.5, -28.5, 5, 2.5, 0.5, '#888', null);
+    ctx.strokeStyle = '#555'; ctx.lineWidth = 0.7;
+    ctx.beginPath(); ctx.moveTo(9,-24); ctx.lineTo(14,-24); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(9,-22); ctx.lineTo(14,-22); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(9,-20); ctx.lineTo(12,-20); ctx.stroke();
+    // Head
+    ctx.fillStyle = '#f0c888';
+    ctx.beginPath(); ctx.arc(0, -37, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#d4a870'; ctx.lineWidth = 0.5; ctx.stroke();
+    // Brown hair with ponytail
+    ctx.fillStyle = '#664422';
+    ctx.beginPath(); ctx.arc(0, -37, 6, Math.PI, 0); ctx.fill();
+    // Side hair arcs
+    ctx.beginPath(); ctx.arc(-6, -39, 2.5, 0.5, Math.PI - 0.3); ctx.fill();
+    // Ponytail
+    ctx.beginPath(); ctx.arc(7, -40, 2.5, -0.5, 1.5); ctx.fill();
+    // Eyes & smile
+    npcEyes(0, -37);
+    ctx.strokeStyle = '#cc4444'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(0, -35.5, 2.5, 0.2, Math.PI - 0.2); ctx.stroke();
+  }
+
+  else if (type === 'marshal') {
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath(); ctx.ellipse(0, 0, 9, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+    // Formal trousers
+    roundRect(ctx, -4, -14, 4, 14, 1.5, '#222', null);
+    roundRect(ctx,  1, -14, 4, 14, 1.5, '#222', null);
+    // Formal coat (tailed)
+    ctx.fillStyle = '#1a1a2a';
+    ctx.beginPath();
+    ctx.moveTo(-8,0); ctx.lineTo(-8,-34); ctx.lineTo(8,-34); ctx.lineTo(8,0);
+    ctx.lineTo(5,-8); ctx.lineTo(-5,-8); ctx.closePath(); ctx.fill();
+    // Green sash (bezier stripe)
+    ctx.save();
+    ctx.strokeStyle = PALETTE.emerald; ctx.lineWidth = 6; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-10,-27); ctx.bezierCurveTo(-5,-22, 5,-18, 10,-13); ctx.stroke();
+    ctx.restore();
+    // White shirt/cravat
+    ctx.fillStyle = PALETTE.white;
+    ctx.beginPath(); ctx.moveTo(-2,-34); ctx.lineTo(-3,-26); ctx.lineTo(0,-24); ctx.lineTo(3,-26); ctx.lineTo(2,-34); ctx.closePath(); ctx.fill();
+    // Arms
+    roundRect(ctx, -11, -34, 4, 13, 2, '#1a1a2a', null);
+    roundRect(ctx,   7, -34, 4, 13, 2, '#1a1a2a', null);
+    // White gloves
+    roundRect(ctx, -12, -22, 4, 5, 2, PALETTE.white, '#ccc');
+    roundRect(ctx,   8, -22, 4, 5, 2, PALETTE.white, '#ccc');
+    // Head
+    ctx.fillStyle = '#e8c8a0';
+    ctx.beginPath(); ctx.arc(0, -41, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#c8a880'; ctx.lineWidth = 0.5; ctx.stroke();
+    // Top hat (tall path)
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.moveTo(-8,-44); ctx.lineTo(8,-44); ctx.lineTo(6,-58); ctx.lineTo(-6,-58); ctx.closePath(); ctx.fill();
+    // Hat brim
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath(); ctx.moveTo(-9,-44); ctx.lineTo(9,-44); ctx.lineTo(8,-42); ctx.lineTo(-8,-42); ctx.closePath(); ctx.fill();
+    // Hat band
+    ctx.fillStyle = PALETTE.emerald; ctx.fillRect(-6, -49, 12, 3);
+    // Moustache
+    ctx.fillStyle = '#555';
+    ctx.beginPath(); ctx.ellipse(-2, -36, 2.5, 1, -0.2, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse( 2, -36, 2.5, 1,  0.2, 0, Math.PI * 2); ctx.fill();
+    // Eyes
+    npcEyes(0, -41);
+  }
+
+  ctx.restore();
+}
+
+function drawShamrock(ctx, x, y, size = 8, color = PALETTE.emerald) {
+  ctx.save();
+  ctx.translate(x, y);
+  // Derive a darker outline color
+  const r = parseInt(color.slice(1,3)||'0',16), g = parseInt(color.slice(3,5)||'aa',16), b = parseInt(color.slice(5,7)||'44',16);
+  const dark = `rgba(${Math.max(0,r-40)},${Math.max(0,g-60)},${Math.max(0,b-20)},1)`;
+  // Three lobes
+  ctx.fillStyle = color;
+  ctx.strokeStyle = dark; ctx.lineWidth = 0.8;
+  for (let i = 0; i < 3; i++) {
+    ctx.save();
+    ctx.rotate((i * Math.PI * 2) / 3 - Math.PI / 2);
+    ctx.beginPath(); ctx.arc(0, -size * 0.6, size * 0.55, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    // Highlight dot
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.beginPath(); ctx.arc(-size * 0.18, -size * 0.7, size * 0.16, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = color;
+    ctx.restore();
+  }
+  // Stem (tapered bezier)
+  ctx.strokeStyle = color; ctx.lineWidth = size * 0.22;
+  ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.bezierCurveTo(size*0.3, size*0.4, -size*0.1, size*0.7, size*0.1, size); ctx.stroke();
+  ctx.restore();
+}
+
+function drawItemIcon(ctx, x, y, itemId) {
+  ctx.save();
+  ctx.translate(x, y);
+  switch (itemId) {
+    case 'shamrock_bouquet': {
+      // Drop shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.15)';
+      ctx.beginPath(); ctx.ellipse(0, 6, 9, 3, 0, 0, Math.PI * 2); ctx.fill();
+      // Three shamrocks in a cluster
+      drawShamrock(ctx, -8, -2, 7, PALETTE.emerald);
+      drawShamrock(ctx,  8, -2, 7, PALETTE.emerald);
+      drawShamrock(ctx,  0, -6, 7, PALETTE.emerald);
+      // Brown stem tied with bezier
+      ctx.strokeStyle = '#5a3010'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(-4, 2); ctx.bezierCurveTo(-2, 5, 2, 5, 4, 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, 3); ctx.lineTo(0, 10); ctx.stroke();
+      break;
+    }
+    case 'parade_banner': {
+      // Pole with brass tip
+      ctx.strokeStyle = PALETTE.wood; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-11, -10); ctx.lineTo(-11, 12); ctx.stroke();
+      ctx.fillStyle = PALETTE.gold;
+      ctx.beginPath(); ctx.arc(-11, -12, 2.5, 0, Math.PI * 2); ctx.fill();
+      // Waving cloth (bezier top and bottom edges)
+      ctx.fillStyle = PALETTE.emerald;
+      ctx.beginPath();
+      ctx.moveTo(-10,-9); ctx.bezierCurveTo(-2,-11,2,-7,10,-9);
+      ctx.lineTo(10,-4); ctx.bezierCurveTo(2,-2,-2,-6,-10,-4); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = PALETTE.white;
+      ctx.beginPath();
+      ctx.moveTo(-10,-4); ctx.bezierCurveTo(-2,-6,2,-2,10,-4);
+      ctx.lineTo(10, 1); ctx.bezierCurveTo(2,-1,-2, 3,-10, 1); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = PALETTE.orange;
+      ctx.beginPath();
+      ctx.moveTo(-10, 1); ctx.bezierCurveTo(-2,-1,2, 3,10, 1);
+      ctx.lineTo(10, 6); ctx.bezierCurveTo(2, 4,-2, 8,-10, 6); ctx.closePath(); ctx.fill();
+      // Fringe at bottom
+      ctx.strokeStyle = PALETTE.gold; ctx.lineWidth = 1;
+      for (let fx = -9; fx <= 9; fx += 3) {
+        ctx.beginPath(); ctx.moveTo(fx, 6); ctx.lineTo(fx, 9); ctx.stroke();
+      }
+      break;
+    }
+    case 'horseshoe': {
+      // Metallic gradient fill
+      const hg = ctx.createLinearGradient(-9, -10, 9, 6);
+      hg.addColorStop(0, '#c8956a'); hg.addColorStop(0.5, '#a07040'); hg.addColorStop(1, '#6a4010');
+      ctx.strokeStyle = hg; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      // Slightly wider at top for perspective
+      ctx.save(); ctx.scale(1.1, 1);
+      ctx.beginPath(); ctx.arc(0, -2, 9, Math.PI, 0); ctx.stroke();
+      ctx.restore();
+      // Legs
+      ctx.beginPath(); ctx.moveTo(-9.9,-2); ctx.lineTo(-9.9, 6); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo( 9.9,-2); ctx.lineTo( 9.9, 6); ctx.stroke();
+      // Nail holes along arc
+      ctx.fillStyle = '#3a2010';
+      for (let a = Math.PI * 0.2; a <= Math.PI * 0.8; a += Math.PI * 0.15) {
+        ctx.beginPath(); ctx.arc(-Math.cos(a)*9, -2 - Math.sin(a)*9, 1, 0, Math.PI * 2); ctx.fill();
+      }
+      break;
+    }
+    case 'green_bulb': {
+      // Glow radial
+      const glow = ctx.createRadialGradient(0, -6, 1, 0, -6, 12);
+      glow.addColorStop(0, 'rgba(0,255,100,0.3)'); glow.addColorStop(1, 'rgba(0,255,100,0)');
+      ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(0, -6, 12, 0, Math.PI * 2); ctx.fill();
+      // Bulb shape (circle + teardrop bottom)
+      const bg = ctx.createRadialGradient(-2, -9, 1, 0, -6, 8);
+      bg.addColorStop(0, '#44ff88'); bg.addColorStop(0.6, PALETTE.emerald); bg.addColorStop(1, '#006633');
+      ctx.fillStyle = bg;
+      ctx.beginPath(); ctx.arc(0, -6, 7, 0, Math.PI * 2); ctx.fill();
+      // Highlight
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.beginPath(); ctx.arc(-2, -9, 2.5, 0, Math.PI * 2); ctx.fill();
+      // Filament lines inside
+      ctx.strokeStyle = 'rgba(255,255,150,0.5)'; ctx.lineWidth = 0.7;
+      ctx.beginPath(); ctx.moveTo(-2,-4); ctx.lineTo(0,-8); ctx.lineTo(2,-4); ctx.stroke();
+      // Screw base with threading
+      roundRect(ctx, -3.5, 0, 7, 4, 1, PALETTE.stone, '#886644');
+      ctx.strokeStyle = '#886644'; ctx.lineWidth = 0.7;
+      ctx.beginPath(); ctx.moveTo(-3.5, 1.5); ctx.lineTo(3.5, 1.5); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-3.5, 3); ctx.lineTo(3.5, 3); ctx.stroke();
+      roundRect(ctx, -2.5, 4, 5, 3, 1, PALETTE.grey, '#555');
+      break;
+    }
+  }
+  ctx.restore();
+}
+
+function wrapText(ctx, text, x, y, maxW, lineH) {
+  const words = text.split(' ');
+  let line = '';
+  let cy = y;
+  for (const word of words) {
+    const test = line + word + ' ';
+    if (ctx.measureText(test).width > maxW && line !== '') {
+      ctx.fillText(line.trim(), x, cy);
+      line = word + ' ';
+      cy += lineH;
+    } else {
+      line = test;
+    }
+  }
+  if (line.trim()) { ctx.fillText(line.trim(), x, cy); cy += lineH; }
+  return cy;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SECTION 5: SCENE BACKGROUNDS
+// ═══════════════════════════════════════════════════════════════════
+
+function drawBgPub(ctx) {
+  // Back wall with subtle ambient gradient
+  const wallGrad = ctx.createLinearGradient(0, 0, 0, 130);
+  wallGrad.addColorStop(0, '#5a4030'); wallGrad.addColorStop(1, '#3a2010');
+  ctx.fillStyle = wallGrad; ctx.fillRect(0, 0, 320, 130);
+
+  // Floor with wood grain
+  const floorGrad = ctx.createLinearGradient(0, 130, 0, 195);
+  floorGrad.addColorStop(0, '#4a2a12'); floorGrad.addColorStop(1, '#3a2010');
+  ctx.fillStyle = floorGrad; ctx.fillRect(0, 130, 320, 65);
+  // Plank dividers
+  ctx.strokeStyle = '#2a1508'; ctx.lineWidth = 1;
+  for (let px = 0; px < 320; px += 24) {
+    ctx.beginPath(); ctx.moveTo(px, 130); ctx.lineTo(px, 195); ctx.stroke();
+  }
+  // Crosshatch grain within planks
+  ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 0.5;
+  for (let px = 2; px < 320; px += 24) {
+    for (let py = 135; py < 195; py += 8) {
+      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + 20, py + 4); ctx.stroke();
+    }
+  }
+
+  // Stone fireplace (left) — radial glow
+  ctx.fillStyle = '#6a5a4a'; ctx.fillRect(10, 50, 70, 80);
+  ctx.fillStyle = '#5a4a38'; ctx.fillRect(5, 48, 80, 8); // mantle
+  ctx.fillStyle = '#2a1a0a'; ctx.fillRect(20, 80, 50, 50); // firebox
+  // Glow emanating from firebox
+  const fireGlow = ctx.createRadialGradient(45, 108, 2, 45, 108, 30);
+  fireGlow.addColorStop(0, 'rgba(255,100,0,0.55)'); fireGlow.addColorStop(1, 'rgba(255,100,0,0)');
+  ctx.fillStyle = fireGlow; ctx.fillRect(15, 80, 60, 55);
+  // Animated-style layered flame arcs
+  ctx.fillStyle = '#ff2200';
+  ctx.beginPath(); ctx.moveTo(25,130); ctx.bezierCurveTo(28,110,32,105,35,98); ctx.bezierCurveTo(38,105,40,112,38,130); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#ff6600';
+  ctx.beginPath(); ctx.moveTo(32,130); ctx.bezierCurveTo(35,112,39,107,42,100); ctx.bezierCurveTo(45,108,47,116,44,130); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#ffcc00';
+  ctx.beginPath(); ctx.moveTo(38,130); ctx.bezierCurveTo(40,115,42,110,45,105); ctx.bezierCurveTo(47,111,48,120,46,130); ctx.closePath(); ctx.fill();
+
+  // Shamrock bunting across top
+  for (let bx = 20; bx < 300; bx += 40) {
+    ctx.strokeStyle = '#005522'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(bx-20,12); ctx.quadraticCurveTo(bx,24,bx+20,12); ctx.stroke();
+    drawShamrock(ctx, bx, 18, 5, PALETTE.emerald);
+  }
+
+  // Bar counter (right)
+  const barGrad = ctx.createLinearGradient(200, 85, 200, 135);
+  barGrad.addColorStop(0, '#7a5030'); barGrad.addColorStop(1, '#5a3010');
+  ctx.fillStyle = barGrad; ctx.fillRect(195, 85, 125, 10); // top
+  ctx.fillStyle = PALETTE.wood; ctx.fillRect(200, 94, 120, 42);
+  // Bar stool seats (arc circles)
+  ctx.fillStyle = '#7a5030';
+  ctx.beginPath(); ctx.arc(222, 122, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(252, 122, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#5a3010'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(222,129); ctx.lineTo(220,140); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(222,129); ctx.lineTo(224,140); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(252,129); ctx.lineTo(250,140); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(252,129); ctx.lineTo(254,140); ctx.stroke();
+
+  // Bottles on bar (oval top, wider base)
+  ctx.fillStyle = '#226644';
+  ctx.beginPath(); ctx.ellipse(228, 77, 3, 2, 0, 0, Math.PI * 2); ctx.fill(); // neck/cork
+  ctx.fillStyle = '#226644'; ctx.fillRect(225, 78, 6, 12); // body
+  ctx.beginPath(); ctx.ellipse(228, 91, 3.5, 1.5, 0, 0, Math.PI * 2); ctx.fill(); // base
+  ctx.fillStyle = PALETTE.cream; ctx.fillRect(224.5, 76, 7, 3); // label
+  ctx.fillStyle = '#884422';
+  ctx.beginPath(); ctx.ellipse(238, 73, 3, 2, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillRect(235, 74, 6, 15);
+  ctx.beginPath(); ctx.ellipse(238, 89, 3.5, 1.5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = PALETTE.cream; ctx.fillRect(234.5, 73, 7, 3);
+
+  // Window (dawn gradient sky)
+  const dawnGrad = ctx.createLinearGradient(125, 25, 125, 65);
+  dawnGrad.addColorStop(0, '#4488aa'); dawnGrad.addColorStop(0.5, '#dd8855'); dawnGrad.addColorStop(1, '#ffcc88');
+  ctx.fillStyle = dawnGrad; ctx.fillRect(125, 25, 60, 40);
+  // City silhouette
+  ctx.fillStyle = '#664422';
+  ctx.fillRect(125,45,10,20); ctx.fillRect(140,40,12,25); ctx.fillRect(158,48,8,17); ctx.fillRect(170,42,10,23);
+  // Window frame
+  ctx.strokeStyle = PALETTE.wood; ctx.lineWidth = 3;
+  ctx.strokeRect(120, 20, 70, 50);
+  ctx.beginPath(); ctx.moveTo(155,20); ctx.lineTo(155,70); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(120,45); ctx.lineTo(190,45); ctx.stroke();
+
+  // Notice board
+  ctx.fillStyle = '#7a5030'; ctx.fillRect(280,30,38,55);
+  ctx.fillStyle = PALETTE.cream; ctx.fillRect(284,34,30,47);
+  ctx.fillStyle = '#333'; ctx.font = '4px sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText('PARADE', 287, 44); ctx.fillText('TODAY!', 288, 52);
+  ctx.fillStyle = PALETTE.emerald; ctx.fillRect(285,55,12,8); ctx.fillRect(299,55,12,8);
+
+}
+
+function drawBgCathedral(ctx) {
+  // Sky gradient (deep blue → lighter blue-grey horizon)
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, 155);
+  skyGrad.addColorStop(0, '#1a3a6a'); skyGrad.addColorStop(0.6, '#3a6a9a'); skyGrad.addColorStop(1, '#6a90b8');
+  ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, 320, 195);
+
+  // Sun-ray glow upper-right
+  const sunGlow = ctx.createRadialGradient(280, 20, 5, 280, 20, 60);
+  sunGlow.addColorStop(0, 'rgba(255,240,180,0.5)'); sunGlow.addColorStop(1, 'rgba(255,240,180,0)');
+  ctx.fillStyle = sunGlow; ctx.fillRect(220, 0, 100, 80);
+
+  // Clouds
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.beginPath(); ctx.arc(50,25,15,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(70,20,18,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(90,26,12,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(220,30,12,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(238,24,16,0,Math.PI*2); ctx.fill();
+
+  // Ground/steps (perspective foreshortening)
+  ctx.fillStyle = '#a0908a'; ctx.fillRect(0,155,320,40);
+  ctx.fillStyle = '#b0a098'; ctx.fillRect(40,150,240,10);
+  ctx.fillStyle = '#bab2a8'; ctx.fillRect(50,145,220,10);
+  ctx.fillStyle = '#c4beb6'; ctx.fillRect(60,140,200,10);
+
+  // Bell towers (slightly darker than facade for depth)
+  ctx.fillStyle = '#a89a7a'; ctx.fillRect(50,20,50,120); ctx.fillRect(220,20,50,120);
+  ctx.fillStyle = '#988a6a'; ctx.fillRect(50,10,50,15); ctx.fillRect(220,10,50,15);
+  // Spires (pointed triangles)
+  ctx.fillStyle = '#887858';
+  ctx.beginPath(); ctx.moveTo(75,10); ctx.lineTo(67,-8); ctx.lineTo(83,-8); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(245,10); ctx.lineTo(237,-8); ctx.lineTo(253,-8); ctx.closePath(); ctx.fill();
+  // Cross finials
+  ctx.strokeStyle = '#666'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(75,-8); ctx.lineTo(75,-14); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(72,-11); ctx.lineTo(78,-11); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(245,-8); ctx.lineTo(245,-14); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(242,-11); ctx.lineTo(248,-11); ctx.stroke();
+  // Tower windows (arched)
+  ctx.fillStyle = '#554830';
+  ctx.fillRect(65,35,10,12); ctx.beginPath(); ctx.arc(70,35,5,Math.PI,0); ctx.fill();
+  ctx.fillRect(65,60,10,12); ctx.beginPath(); ctx.arc(70,60,5,Math.PI,0); ctx.fill();
+  ctx.fillRect(235,35,10,12); ctx.beginPath(); ctx.arc(240,35,5,Math.PI,0); ctx.fill();
+  ctx.fillRect(235,60,10,12); ctx.beginPath(); ctx.arc(240,60,5,Math.PI,0); ctx.fill();
+
+  // Cathedral facade with subtle stone variation
+  const facadeGrad = ctx.createLinearGradient(50,30,270,30);
+  facadeGrad.addColorStop(0,'#c0b090'); facadeGrad.addColorStop(0.5,'#cec0a0'); facadeGrad.addColorStop(1,'#c0b090');
+  ctx.fillStyle = facadeGrad; ctx.fillRect(100,30,120,130);
+  // Stone block pattern
+  for (let brow = 0; brow < 12; brow++) {
+    const off = (brow % 2) * 10;
+    ctx.strokeStyle = `rgba(100,80,50,${0.2 + (brow%3)*0.05})`; ctx.lineWidth = 0.7;
+    for (let bcol = 0; bcol < 7; bcol++) {
+      ctx.strokeRect(100 + off + bcol * 20 - 2, 30 + brow * 8, 20, 8);
+    }
+  }
+
+  // Gothic pointed arch - main door (bezier curves)
+  ctx.fillStyle = '#7a6848';
+  ctx.beginPath();
+  ctx.moveTo(125,155); ctx.lineTo(125,95);
+  ctx.bezierCurveTo(125,72, 140,65, 160,62);
+  ctx.bezierCurveTo(180,65, 195,72, 195,95);
+  ctx.lineTo(195,155); ctx.closePath(); ctx.fill();
+  // Door panels
+  ctx.fillStyle = '#4a2e14'; ctx.fillRect(130,110,28,45); ctx.fillRect(162,110,28,45);
+  ctx.fillStyle = '#6a4a28';
+  ctx.beginPath(); ctx.arc(144,110,14,Math.PI,0); ctx.fill();
+  ctx.beginPath(); ctx.arc(176,110,14,Math.PI,0); ctx.fill();
+
+  // Rose window (spokes + colored segments + outline ring)
+  const cx=160, cy=60;
+  ctx.fillStyle = '#7a6848'; ctx.beginPath(); ctx.arc(cx,cy,22,0,Math.PI*2); ctx.fill();
+  const wColors = ['#ff4400','#ffaa00','#44aaff','#44ff88','#ff44aa','#ffff44','#aa44ff','#44ffff'];
+  for (let s=0; s<8; s++) {
+    ctx.fillStyle = wColors[s];
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,18,s*Math.PI/4,(s+1)*Math.PI/4); ctx.closePath(); ctx.fill();
+  }
+  // Spokes
+  ctx.strokeStyle = '#7a6848'; ctx.lineWidth = 1;
+  for (let s=0; s<8; s++) {
+    const a = s*Math.PI/4;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+Math.cos(a)*18,cy+Math.sin(a)*18); ctx.stroke();
+  }
+  ctx.strokeStyle = '#7a6848'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(cx,cy,18,0,Math.PI*2); ctx.stroke();
+  ctx.fillStyle = '#7a6848'; ctx.beginPath(); ctx.arc(cx,cy,4,0,Math.PI*2); ctx.fill();
+
+  // Potted shamrocks
+  ctx.fillStyle = PALETTE.stone; ctx.fillRect(70,142,12,15); ctx.fillRect(238,142,12,15);
+  for (let i=-1; i<=1; i++) {
+    drawShamrock(ctx, 76+i*3, 140, 5, PALETTE.emerald);
+    drawShamrock(ctx, 244+i*3, 140, 5, PALETTE.emerald);
+  }
+}
+
+function drawBgSteamtown(ctx) {
+  // Sky gradient (grey-blue → warm golden mist near horizon)
+  const skyGrad = ctx.createLinearGradient(0,0,0,130);
+  skyGrad.addColorStop(0,'#5a7a90'); skyGrad.addColorStop(0.7,'#8aaabe'); skyGrad.addColorStop(1,'#c8b080');
+  ctx.fillStyle = skyGrad; ctx.fillRect(0,0,320,140);
+  // Layered mist at different alphas
+  ctx.fillStyle = 'rgba(200,220,230,0.25)'; ctx.fillRect(0,70,320,60);
+  ctx.fillStyle = 'rgba(210,225,235,0.20)'; ctx.fillRect(0,90,320,45);
+  ctx.fillStyle = 'rgba(220,230,240,0.15)'; ctx.fillRect(0,110,320,35);
+
+  // Ground
+  ctx.fillStyle = '#4a3a28'; ctx.fillRect(0,140,320,55);
+  // Gravel + tracks (converging perspective toward right)
+  ctx.fillStyle = '#666'; ctx.fillRect(0,130,320,15);
+  ctx.fillStyle = '#8a7a6a';
+  for (let tx = 0; tx < 320; tx += 18) { ctx.fillRect(tx,131,12,5); }
+  // Rails
+  ctx.fillStyle = '#888'; ctx.fillRect(0,133,320,2); ctx.fillRect(0,137,320,2);
+  // Perspective track lines converging right
+  ctx.strokeStyle = 'rgba(100,90,70,0.4)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0,135); ctx.lineTo(320,130); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0,140); ctx.lineTo(320,136); ctx.stroke();
+
+  // Red brick depot (alternating offset rows)
+  ctx.fillStyle = '#7a2a1a'; ctx.fillRect(0,60,80,90);
+  for (let br = 0; br < 12; br++) {
+    const off = (br%2)*6;
+    ctx.fillStyle = br%3===0 ? '#aa4a3a' : '#9a3a2a';
+    for (let bc = 0; bc < 8; bc++) { ctx.fillRect(off+bc*10-2, 62+br*8, 9, 6); }
+    ctx.strokeStyle = '#5a2010'; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(0,62+br*8); ctx.lineTo(80,62+br*8); ctx.stroke();
+  }
+  ctx.fillStyle = '#5a2010'; ctx.fillRect(0,58,80,6); // cornice
+  // Depot windows (arched tops)
+  ctx.fillStyle = '#ffeeaa';
+  ctx.fillRect(10,78,18,19); ctx.beginPath(); ctx.arc(19,78,9,Math.PI,0); ctx.fill();
+  ctx.fillRect(40,78,18,19); ctx.beginPath(); ctx.arc(49,78,9,Math.PI,0); ctx.fill();
+  ctx.fillStyle = '#5a4020';
+  ctx.fillRect(12,80,7,17); ctx.fillRect(21,80,7,17);
+  ctx.fillRect(42,80,7,17); ctx.fillRect(51,80,7,17);
+  // Depot door
+  ctx.fillStyle = '#2a1008'; ctx.fillRect(25,105,22,45);
+
+  // Steam Locomotive
+  const lx = 90;
+  // Wheels with 8 spokes
+  const drawWheel = (wx, wy, r) => {
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath(); ctx.arc(wx,wy,r,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#666'; ctx.lineWidth = 1.5;
+    for (let s=0; s<8; s++) {
+      const a = s*Math.PI/4;
+      ctx.beginPath(); ctx.moveTo(wx,wy); ctx.lineTo(wx+Math.cos(a)*(r-2),wy+Math.sin(a)*(r-2)); ctx.stroke();
+    }
+    ctx.strokeStyle = '#888'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(wx,wy,r,0,Math.PI*2); ctx.stroke();
+    ctx.fillStyle = '#555'; ctx.beginPath(); ctx.arc(wx,wy,4,0,Math.PI*2); ctx.fill();
+  };
+  drawWheel(lx+20,140,14); drawWheel(lx+50,140,14); drawWheel(lx+80,140,14);
+
+  // Boiler (cylindrical — arc-capped ends)
+  ctx.fillStyle = '#2a2a2a'; ctx.fillRect(lx+15,103,95,35);
+  ctx.fillStyle = '#333'; ctx.beginPath(); ctx.ellipse(lx+15,120,10,17,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#3a3a3a'; ctx.beginPath(); ctx.ellipse(lx+110,120,8,17,0,0,Math.PI*2); ctx.fill();
+  // Rivets along boiler seam
+  ctx.fillStyle = '#555';
+  for (let rv=lx+20; rv<lx+105; rv+=10) { ctx.beginPath(); ctx.arc(rv,104,1.5,0,Math.PI*2); ctx.fill(); }
+  // Pilot (cowcatcher) triangular path
+  ctx.fillStyle = '#444';
+  ctx.beginPath(); ctx.moveTo(lx+5,128); ctx.lineTo(lx+15,118); ctx.lineTo(lx+15,128); ctx.closePath(); ctx.fill();
+  // Headlamp with glow
+  const lampGlow = ctx.createRadialGradient(lx+12,108,1,lx+12,108,8);
+  lampGlow.addColorStop(0,'rgba(255,240,150,0.8)'); lampGlow.addColorStop(1,'rgba(255,240,150,0)');
+  ctx.fillStyle = lampGlow; ctx.beginPath(); ctx.arc(lx+12,108,8,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#ffee88'; ctx.beginPath(); ctx.arc(lx+12,108,4,0,Math.PI*2); ctx.fill();
+
+  // Cab
+  ctx.fillStyle = '#2a1808'; ctx.fillRect(lx+90,88,40,50);
+  ctx.fillStyle = '#ffeeaa'; ctx.fillRect(lx+96,94,14,15); ctx.fillRect(lx+114,94,14,15);
+
+  // Smokestack
+  ctx.fillStyle = '#111'; ctx.fillRect(lx+28,84,14,20);
+  ctx.fillStyle = '#222'; ctx.fillRect(lx+24,80,22,8);
+  // Steam (wispy bezier arcs)
+  ctx.fillStyle = 'rgba(210,210,215,0.55)';
+  ctx.beginPath(); ctx.moveTo(lx+31,80); ctx.bezierCurveTo(lx+28,70,lx+38,63,lx+35,53); ctx.bezierCurveTo(lx+32,43,lx+42,38,lx+40,28); ctx.bezierCurveTo(lx+38,20,lx+30,15,lx+32,8); ctx.lineWidth = 7; ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(210,210,215,0.4)'; ctx.stroke();
+  ctx.fillStyle = 'rgba(200,205,210,0.45)';
+  ctx.beginPath(); ctx.arc(lx+38,60,9,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(lx+44,46,11,0,Math.PI*2); ctx.fill();
+
+  // Coal cart
+  ctx.fillStyle = '#2a2a2a'; ctx.fillRect(240,120,60,25);
+  ctx.fillStyle = '#111'; ctx.fillRect(240,118,60,5);
+  for (let cx=244; cx<296; cx+=6) {
+    ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(cx,120,4,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#333'; ctx.beginPath(); ctx.arc(cx+2,118,3,0,Math.PI*2); ctx.fill();
+  }
+  ctx.fillStyle = '#333'; ctx.beginPath(); ctx.arc(253,145,6,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(275,145,6,0,Math.PI*2); ctx.fill();
+
+  // Fence post (horseshoe hangs here when not yet taken)
+  ctx.fillStyle = '#5a3a20'; ctx.fillRect(300,80,4,70);
+
+  // Railroad spike display box
+  ctx.fillStyle = PALETTE.wood; ctx.fillRect(5,95,65,35);
+  ctx.fillStyle = '#444'; ctx.fillRect(8,98,10,28); ctx.fillRect(22,98,10,28); ctx.fillRect(36,98,10,28); ctx.fillRect(50,98,10,28);
+  ctx.fillStyle = PALETTE.grey; ctx.fillRect(11,103,4,18); ctx.fillRect(25,103,4,18); ctx.fillRect(39,103,4,18); ctx.fillRect(53,103,4,18);
+}
+
+function drawBgLackawanna(ctx) {
+  // Dusk sky gradient (purple-grey top → warm amber near buildings)
+  const skyGrad = ctx.createLinearGradient(0,0,0,100);
+  skyGrad.addColorStop(0,'#2a2840'); skyGrad.addColorStop(0.6,'#4a4a6a'); skyGrad.addColorStop(1,'#9a7040');
+  ctx.fillStyle = skyGrad; ctx.fillRect(0,0,320,100);
+
+  // Buildings (subtle perspective — upper floors slightly narrower)
+  ctx.fillStyle = '#2a2a3a'; ctx.fillRect(0,40,320,60);
+  ctx.fillStyle = '#353545'; ctx.fillRect(30,20,50,80); ctx.fillRect(250,10,60,90);
+  ctx.fillStyle = '#303040'; ctx.fillRect(100,30,40,70); ctx.fillRect(200,25,45,75);
+  // Lit windows with shadowBlur glow
+  ctx.save();
+  ctx.shadowColor = '#ffee88'; ctx.shadowBlur = 4;
+  ctx.fillStyle = '#ffee88';
+  const winSeeds = [1,0,1,1,0,1,0,1,1,1,0,1,1,0,1,1,0,0,1,1,1,0,1,1];
+  let wi = 0;
+  for (let bx=35; bx<75; bx+=12) for (let by=25; by<90; by+=14) { if(winSeeds[wi++%24]) ctx.fillRect(bx,by,8,9); }
+  for (let bx=255; bx<305; bx+=14) for (let by=15; by<85; by+=14) { if(winSeeds[wi++%24]) ctx.fillRect(bx,by,9,9); }
+  ctx.restore();
+
+  // Sidewalk with perspective lines
+  const swGrad = ctx.createLinearGradient(0,140,0,195);
+  swGrad.addColorStop(0,'#8a8888'); swGrad.addColorStop(1,'#6a6868');
+  ctx.fillStyle = swGrad; ctx.fillRect(0,140,320,55);
+  ctx.fillStyle = '#7a7878';
+  for (let sx=0; sx<320; sx+=40) { ctx.fillRect(sx,140,38,55); }
+  // Sidewalk perspective lines
+  ctx.strokeStyle = 'rgba(100,100,100,0.4)'; ctx.lineWidth = 0.5;
+  for (let sp=0; sp<320; sp+=40) { ctx.beginPath(); ctx.moveTo(sp,140); ctx.lineTo(160,155); ctx.stroke(); }
+
+  // Street
+  ctx.fillStyle = '#2a2a2a'; ctx.fillRect(0,155,320,40);
+  ctx.fillStyle = '#ffff44'; ctx.fillRect(0,173,320,2);
+  ctx.fillStyle = '#fff';
+  for (let dx=0; dx<320; dx+=25) { ctx.fillRect(dx,160,12,3); }
+
+  // Irish flags
+  for (let fx=30; fx<290; fx+=60) {
+    ctx.fillStyle = '#555'; ctx.fillRect(fx,100,2,25);
+    ctx.fillStyle = PALETTE.emerald; ctx.fillRect(fx+2,100,10,14);
+    ctx.fillStyle = PALETTE.white; ctx.fillRect(fx+12,100,10,14);
+    ctx.fillStyle = PALETTE.orange; ctx.fillRect(fx+22,100,10,14);
+  }
+  // Green bunting
+  ctx.strokeStyle = '#003311'; ctx.lineWidth = 1;
+  for (let bx=0; bx<300; bx+=40) {
+    ctx.beginPath(); ctx.moveTo(bx,95); ctx.quadraticCurveTo(bx+20,108,bx+40,95); ctx.stroke();
+    drawShamrock(ctx,bx+20,105,4,PALETTE.emerald);
+  }
+
+  // THE ELECTRIC CITY SIGN — halo behind panel
+  const sx = 140;
+  ctx.save();
+  ctx.shadowColor = '#00ff44'; ctx.shadowBlur = 18;
+  ctx.fillStyle = '#001a00'; ctx.fillRect(sx-4,11,52,138);
+  ctx.restore();
+  ctx.fillStyle = '#111'; ctx.fillRect(sx,15,44,130);
+  ctx.fillStyle = '#1a1a1a'; ctx.fillRect(sx+2,17,40,126);
+  // Glowing letters
+  ctx.save();
+  ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center';
+  ctx.shadowColor = '#00ff44'; ctx.shadowBlur = 12;
+  ctx.fillStyle = '#00ff88';
+  const letters = ['E','L','E','C','T','R','I','C'];
+  letters.forEach((l,i) => ctx.fillText(l, sx+22, 38+i*14));
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = PALETTE.gold;
+  ctx.fillText('CITY', sx+22, 152);
+  ctx.textAlign = 'left';
+  ctx.restore();
+
+
+  // Lampposts with arc globe lanterns + warm glow on pavement
+  for (let lp=20; lp<300; lp+=100) {
+    // Pavement glow
+    const pglow = ctx.createRadialGradient(lp+2,155,1,lp+2,155,25);
+    pglow.addColorStop(0,'rgba(255,220,100,0.3)'); pglow.addColorStop(1,'rgba(255,220,100,0)');
+    ctx.fillStyle = pglow; ctx.beginPath(); ctx.arc(lp+2,155,25,0,Math.PI*2); ctx.fill();
+    // Post
+    ctx.fillStyle = '#444'; ctx.fillRect(lp,80,4,75);
+    // Crossbar
+    ctx.fillStyle = '#444'; ctx.fillRect(lp-10,80,25,4);
+    // Lantern globes (arc-drawn)
+    ctx.save();
+    ctx.shadowColor = '#ffee88'; ctx.shadowBlur = 8;
+    ctx.fillStyle = '#ffeeaa';
+    ctx.beginPath(); ctx.ellipse(lp-4,78,5,6,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(lp+8,78,5,6,0,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+    // Flag on post
+    ctx.fillStyle = '#333'; ctx.fillRect(lp+4,60,2,25);
+    ctx.fillStyle = PALETTE.emerald; ctx.fillRect(lp+6,60,7,10);
+    ctx.fillStyle = PALETTE.white;   ctx.fillRect(lp+13,60,7,10);
+    ctx.fillStyle = PALETTE.orange;  ctx.fillRect(lp+20,60,7,10);
+  }
+}
+
+function drawBgParade(ctx) {
+  // Bright clear sky gradient (deep blue → pale near horizon)
+  const skyGrad = ctx.createLinearGradient(0,0,0,120);
+  skyGrad.addColorStop(0,'#2266aa'); skyGrad.addColorStop(0.7,'#55aadd'); skyGrad.addColorStop(1,'#aaddee');
+  ctx.fillStyle = skyGrad; ctx.fillRect(0,0,320,140);
+
+  // Sun (radial gradient glow + longer rays)
+  const sunGlow = ctx.createRadialGradient(270,30,4,270,30,35);
+  sunGlow.addColorStop(0,'rgba(255,240,100,0.9)'); sunGlow.addColorStop(0.5,'rgba(255,220,50,0.3)'); sunGlow.addColorStop(1,'rgba(255,220,50,0)');
+  ctx.fillStyle = sunGlow; ctx.beginPath(); ctx.arc(270,30,35,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#ffee44'; ctx.beginPath(); ctx.arc(270,30,18,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#ffee44'; ctx.lineWidth = 2;
+  for (let a=0; a<Math.PI*2; a+=Math.PI/8) {
+    const inner = 21, outer = 28 + (Math.floor(a/(Math.PI/4))%2)*5;
+    ctx.beginPath(); ctx.moveTo(270+Math.cos(a)*inner,30+Math.sin(a)*inner);
+    ctx.lineTo(270+Math.cos(a)*outer,30+Math.sin(a)*outer); ctx.stroke();
+  }
+
+  // Background buildings
+  ctx.fillStyle = '#d0c8b8'; ctx.fillRect(0,50,80,80);
+  ctx.fillStyle = '#c8bca8'; ctx.fillRect(240,40,80,100);
+  ctx.fillStyle = '#b8aaa0'; ctx.fillRect(160,55,70,75);
+
+  // Crowd (left) with distinct color hats and waving arms
+  const hatColors = ['#aa2200','#00aa44','#2244aa','#884400','#880088','#448800','#aa6600'];
+  for (let pi=0,px=5; px<130; px+=11, pi++) {
+    const ph = 22 + (px % 14);
+    ctx.fillStyle = '#334'; ctx.fillRect(px,115-ph,7,ph);
+    ctx.beginPath(); ctx.arc(px+3.5,112-ph,4.5,0,Math.PI*2); ctx.fill();
+    // Hat
+    ctx.fillStyle = hatColors[pi%hatColors.length]; ctx.fillRect(px-1,108-ph,9,5);
+    // Waving arm (arc)
+    ctx.strokeStyle = '#334'; ctx.lineWidth = 1.5;
+    if (pi%2===0) { ctx.beginPath(); ctx.moveTo(px+1,110-ph); ctx.lineTo(px-4,100-ph); ctx.stroke(); }
+    else          { ctx.beginPath(); ctx.moveTo(px+5,110-ph); ctx.lineTo(px+10,100-ph); ctx.stroke(); }
+    // Mini Irish flag
+    if (pi%3===0) {
+      ctx.fillStyle = PALETTE.emerald; ctx.fillRect(px-4,96-ph,4,3);
+      ctx.fillStyle = PALETTE.white;   ctx.fillRect(px-4,99-ph,4,3);
+      ctx.fillStyle = PALETTE.orange;  ctx.fillRect(px-4,102-ph,4,3);
+      ctx.fillStyle = '#888'; ctx.fillRect(px-5,94-ph,1,12);
+    }
+  }
+  // Crowd (right)
+  for (let pi=0,px=200; px<315; px+=10, pi++) {
+    const ph = 22 + (px % 13);
+    ctx.fillStyle = '#445'; ctx.fillRect(px,115-ph,7,ph);
+    ctx.beginPath(); ctx.arc(px+3.5,112-ph,4.5,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = hatColors[(pi+3)%hatColors.length]; ctx.fillRect(px-1,108-ph,9,5);
+    ctx.strokeStyle = '#445'; ctx.lineWidth = 1.5;
+    if (pi%2===0) { ctx.beginPath(); ctx.moveTo(px+1,110-ph); ctx.lineTo(px+8,100-ph); ctx.stroke(); }
+  }
+
+  // Ground / street
+  const groundGrad = ctx.createLinearGradient(0,138,0,195);
+  groundGrad.addColorStop(0,'#aaaaaa'); groundGrad.addColorStop(1,'#777777');
+  ctx.fillStyle = groundGrad; ctx.fillRect(0,138,320,57);
+  ctx.fillStyle = '#888';
+  for (let sx=0; sx<320; sx+=32) ctx.fillRect(sx,140,30,55);
+
+  // Parade float (arc-decorated front, floral fringe)
+  ctx.fillStyle = PALETTE.emerald; ctx.fillRect(100,100,140,50);
+  ctx.fillStyle = '#009944'; ctx.fillRect(100,98,140,8);
+  // Curved front of float
+  ctx.fillStyle = '#00bb44';
+  ctx.beginPath(); ctx.moveTo(100,100); ctx.bezierCurveTo(100,90,115,88,125,98); ctx.lineTo(125,150); ctx.lineTo(100,150); ctx.closePath(); ctx.fill();
+  // Floral fringe along bottom
+  ctx.fillStyle = PALETTE.gold;
+  for (let fx=110; fx<235; fx+=18) {
+    ctx.fillRect(fx,100,4,50);
+    drawShamrock(ctx,fx+2,96,5,PALETTE.gold);
+    // Fringe dots
+    ctx.beginPath(); ctx.arc(fx+2,150,3,0,Math.PI); ctx.fill();
+  }
+  // Float wheels
+  ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(125,150,12,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(215,150,12,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#555'; ctx.beginPath(); ctx.arc(125,150,6,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(215,150,6,0,Math.PI*2); ctx.fill();
+
+  // Street signs
+  ctx.fillStyle = PALETTE.grey; ctx.fillRect(45,85,4,60);
+  ctx.fillStyle = PALETTE.emerald; ctx.fillRect(20,80,60,14);
+  ctx.fillStyle = PALETTE.white; ctx.font = '6px sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText('MULBERRY ST',23,90);
+  ctx.fillStyle = PALETTE.grey; ctx.fillRect(280,85,4,60);
+  ctx.fillStyle = PALETTE.emerald; ctx.fillRect(255,80,70,14);
+  ctx.fillStyle = PALETTE.white; ctx.fillText('WYOMING AVE',258,90);
+
+  // Irish flags on poles
+  for (let ff=0; ff<320; ff+=40) {
+    ctx.fillStyle = '#333'; ctx.fillRect(ff+2,95,2,30);
+    ctx.fillStyle = PALETTE.emerald; ctx.fillRect(ff+4,95,8,12);
+    ctx.fillStyle = PALETTE.white;   ctx.fillRect(ff+12,95,8,12);
+    ctx.fillStyle = PALETTE.orange;  ctx.fillRect(ff+20,95,8,12);
+  }
+
+  // Marching band (bright red, gold epaulettes, trombone + drum)
+  for (let bp=278, bi=0; bp<315; bp+=12, bi++) {
+    ctx.fillStyle = '#990000'; ctx.fillRect(bp,115,8,28);
+    ctx.beginPath(); ctx.arc(bp+4,112,5,0,Math.PI*2); ctx.fill();
+    // Gold epaulette
+    ctx.fillStyle = PALETTE.gold; ctx.fillRect(bp-1,115,10,5);
+    // Instrument
+    if (bi%2===0) {
+      // Trombone slide
+      ctx.strokeStyle = '#aaa'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(bp+8,120); ctx.lineTo(bp+18,116); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(bp+8,123); ctx.lineTo(bp+18,119); ctx.stroke();
+    } else {
+      // Drum (circle)
+      ctx.strokeStyle = '#ddd'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(bp-4,124,4,0,Math.PI*2); ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.fillRect(bp-5,123,1,2); ctx.fillRect(bp-3,123,1,2);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SECTION 6: SCENE DEFINITIONS
+// ═══════════════════════════════════════════════════════════════════
+
+// Hotspot hit-test: simple rectangle version
+function makeRect(x, y, w, h) {
+  return { x, y, w, h };
+}
+function rectContains(rect, px, py) {
+  return px >= rect.x && px <= rect.x + rect.w && py >= rect.y && py <= rect.y + rect.h;
+}
+
+const SCENES = {
+
+  pub: {
+    id: 'pub',
+    name: "Paddy's Pub",
+    paddyStart: { x: 80, y: 155 },
+    drawBg: drawBgPub,
+    npcs: [{ id: 'siobhan', type: 'siobhan', x: 240, y: 155, dialogueId: 'siobhan' }],
+    hotspots: [
+      { id: 'fireplace',    name: 'Stone Fireplace', rect: makeRect(10, 50, 70, 80),   verbs: ['look'] },
+      { id: 'shamrock',     name: 'Shamrock Bouquet', rect: makeRect(148, 110, 50, 30), verbs: ['look', 'take'], item: 'shamrock_bouquet', flag: 'has_shamrock', requireFlag: 'quiz_pub_done' },
+      { id: 'noticeboard',  name: 'Notice Board',    rect: makeRect(278, 28, 40, 58),  verbs: ['look'] },
+      { id: 'exit_door',    name: 'Pub Door',        rect: makeRect(0, 100, 20, 80),   verbs: ['look', 'use'], isExit: true, exitTo: 'cathedral' },
+    ],
+    dialogues: {
+      fireplace:   "A warm stone fireplace. The embers are still glowing from last night.",
+      shamrock:    "A beautiful bouquet of fresh shamrocks. Perfect for the parade float!",
+      noticeboard: "The notice board says: SCRANTON ST. PATRICK'S PARADE - TODAY! Mulberry & Wyoming Ave, 12:00 NOON!",
+      exit_door:   "The front door of the pub leads out to the street.",
+    },
+  },
+
+  cathedral: {
+    id: 'cathedral',
+    name: "St. Peter's Cathedral",
+    paddyStart: { x: 80, y: 160 },
+    drawBg: drawBgCathedral,
+    npcs: [{ id: 'father_callahan', type: 'father_callahan', x: 230, y: 155, dialogueId: 'father_callahan' }],
+    hotspots: [
+      { id: 'cathedral_door', name: 'Cathedral Door', rect: makeRect(125, 60, 70, 95), verbs: ['look'] },
+      { id: 'stained_glass',  name: 'Rose Window',    rect: makeRect(138, 38, 44, 44), verbs: ['look'] },
+      { id: 'collection_box', name: 'Collection Box', rect: makeRect(90, 148, 30, 15), verbs: ['look'] },
+      { id: 'banner',         name: 'Parade Banner',  rect: makeRect(285, 75, 30, 65), verbs: ['look', 'take'], item: 'parade_banner', flag: 'has_banner', requireFlag: 'quiz_cathedral_done' },
+      { id: 'exit_steamtown', name: 'Stone Steps',    rect: makeRect(0, 145, 50, 50),  verbs: ['look', 'use'], isExit: true, exitTo: 'steamtown' },
+    ],
+    dialogues: {
+      cathedral_door: "The grand Gothic doors of St. Peter's Cathedral. A sign reads: PARADE DAY MASS — 11:00 AM. All are welcome!",
+      stained_glass:  "A magnificent rose window with colorful stained glass depicting scenes of Ireland. Beautiful!",
+      collection_box: "A donation box for the parish. Paddy drops in a coin.",
+      banner:         "A green, white, and orange parade banner propped against the wall. Just what the parade needs!",
+      exit_steamtown: "The stone steps lead down to the street. Steamtown is just a few blocks away.",
+    },
+  },
+
+  steamtown: {
+    id: 'steamtown',
+    name: "Steamtown National Historic Site",
+    paddyStart: { x: 80, y: 155 },
+    drawBg: drawBgSteamtown,
+    npcs: [{ id: 'seamus', type: 'seamus', x: 220, y: 155, dialogueId: 'seamus' }],
+    hotspots: [
+      { id: 'locomotive',  name: 'Steam Locomotive', rect: makeRect(90, 90, 110, 60),  verbs: ['look'] },
+      { id: 'coal_cart',   name: 'Coal Cart',        rect: makeRect(240, 115, 60, 40), verbs: ['look', 'push'] },
+      { id: 'spike_box',   name: 'Railroad Spike Display', rect: makeRect(5, 92, 65, 42), verbs: ['look'] },
+      { id: 'horseshoe',   name: 'Lucky Horseshoe',  rect: makeRect(288, 78, 28, 25),  verbs: ['look', 'take'], item: 'horseshoe', flag: 'has_horseshoe', requireFlag: 'quiz_steamtown_done' },
+      { id: 'exit_lacka',  name: 'Depot Exit',       rect: makeRect(0, 100, 80, 95),   verbs: ['look', 'use'], isExit: true, exitTo: 'lackawanna' },
+    ],
+    dialogues: {
+      locomotive:  "A magnificent steam locomotive! A plaque reads: 'Built 1916. This engine carried coal from the Wyoming Valley to cities across the Northeast.'",
+      coal_cart:   "A cart full of anthracite coal. It's heavy! 'Back-breaking work,' Paddy mutters.",
+      spike_box:   "A display case showing old railroad spikes. A sign reads: 'Irish immigrants drove over 30 million spikes building America's railroads.'",
+      horseshoe:   "A lucky horseshoe hung on the fence. An old tradition — open end up to catch the luck!",
+      exit_lacka:  "The depot exit leads toward downtown. The Electric City sign glitters in the distance.",
+    },
+  },
+
+  lackawanna: {
+    id: 'lackawanna',
+    name: "Lackawanna Ave — Electric City",
+    paddyStart: { x: 80, y: 155 },
+    drawBg: drawBgLackawanna,
+    npcs: [{ id: 'maggie', type: 'maggie', x: 65, y: 148, dialogueId: 'maggie' }],
+    hotspots: [
+      { id: 'elec_sign',   name: 'Electric City Sign', rect: makeRect(140, 12, 44, 135), verbs: ['look'] },
+      { id: 'storefront',  name: 'Storefront Window',  rect: makeRect(85, 100, 50, 50),  verbs: ['look'] },
+      { id: 'bulb',        name: 'Green Light Bulb',   rect: makeRect(257, 128, 26, 25), verbs: ['look', 'take'], item: 'green_bulb', flag: 'has_bulb', requireFlag: 'quiz_lackawanna_done' },
+      { id: 'lamppost',    name: 'Lamppost with Flags', rect: makeRect(15, 60, 25, 90), verbs: ['look'] },
+      { id: 'exit_parade', name: 'Down Lackawanna Ave', rect: makeRect(0, 140, 40, 55), verbs: ['look', 'use'], isExit: true, exitTo: 'parade' },
+    ],
+    dialogues: {
+      elec_sign:  "The famous 'ELECTRIC CITY' vertical sign! It's been lit up green and gold for the parade. Scranton earned this nickname in 1886 when it became the first US city to run electric streetcars!",
+      storefront: "The shop window is full of St. Patrick's Day decorations — shamrocks, green top hats, and tiny Irish flags.",
+      bulb:       "A green light bulb sitting on the sidewalk. Someone must have dropped it while decorating for the parade!",
+      lamppost:   "The lamppost is wrapped in Irish flags. The parade route is just down the street!",
+      exit_parade:"The street leads toward Mulberry & Wyoming — the parade starting point!",
+    },
+  },
+
+  parade: {
+    id: 'parade',
+    name: "Mulberry & Wyoming — Parade Start!",
+    paddyStart: { x: 80, y: 155 },
+    drawBg: drawBgParade,
+    npcs: [{ id: 'marshal', type: 'marshal', x: 225, y: 145, dialogueId: 'marshal' }],
+    hotspots: [
+      { id: 'float',       name: 'Parade Float',    rect: makeRect(130, 100, 110, 50), verbs: ['look', 'use'] },
+      { id: 'crowd',       name: 'The Crowd',       rect: makeRect(0, 60, 95, 55),     verbs: ['look', 'talk'] },
+      { id: 'mulberry_st', name: 'Mulberry St Sign', rect: makeRect(18, 76, 64, 18),   verbs: ['look'] },
+      { id: 'wyoming_ave', name: 'Wyoming Ave Sign', rect: makeRect(252, 76, 72, 18),  verbs: ['look'] },
+    ],
+    dialogues: {
+      float:       "The parade float is gorgeous — green and gold, decorated with shamrocks. It just needs the items to make it complete!",
+      crowd:       "The crowd is buzzing with excitement! People wave Irish flags and wear green hats. One little girl shouts 'Top o' the mornin', Paddy!'",
+      mulberry_st: "The sign reads 'MULBERRY STREET'. This is the traditional start of the Scranton St. Patrick's Parade!",
+      wyoming_ave: "The sign reads 'WYOMING AVENUE'. Named after the Wyoming Valley — heart of coal country!",
+    },
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// SECTION 7: DIALOGUE SYSTEM
+// ═══════════════════════════════════════════════════════════════════
+
+const DIALOGUES = {
+  siobhan: {
+    root: {
+      lines: [
+        "Top o' the mornin', Paddy! Oh, I'm so glad ye're here!",
+        "The St. Patrick's Parade starts at noon — but we're in terrible trouble!",
+        "Grand Marshal O'Brien says we're missing FOUR essential items for the parade!",
+        "Without them, the parade can't begin. Scranton would be heartbroken!",
+        "We need: a Shamrock Bouquet, the Parade Banner, a Lucky Horseshoe, and a Green Light Bulb.",
+        "Before ye go, Paddy — I've a quick quiz for ye. Show everyone ye know your Irish history!",
+      ],
+      next: 'quiz1',
+    },
+    quiz1: { quizFromBank: { scene: 'pub' }, next: 'quiz2' },
+    quiz2: { quizFromBank: { scene: 'pub' }, next: 'farewell' },
+    farewell: {
+      lines: [
+        "Brilliant! Now, there's a Shamrock Bouquet right there on the table — take it!",
+        "Then head to St. Peter's Cathedral, Steamtown, and Lackawanna Avenue.",
+        "Hurry, Paddy! The clock is ticking! Erin go Bragh!",
+      ],
+      doneFlag: 'quiz_pub_done',
+    },
+    already_done: {
+      lines: ["Ye have everything from here, Paddy! Now go — the parade needs ye!"],
+    },
+  },
+
+  father_callahan: {
+    root: {
+      lines: [
+        "Ah, Paddy! God bless ye! Are ye here about the parade?",
+        "We have Parade Day Mass at 11 o'clock sharp — always have. The whole parish turns out before joining the march!",
+        "The Irish-Catholic community has marched in this parade for over 150 years.",
+        "Our parish came here fleeing the Great Famine of 1845 to 1852. Scranton gave us hope.",
+        "I have the Parade Banner right here — but first, let's see if ye know your Irish history!",
+      ],
+      next: 'quiz1',
+    },
+    quiz1: { quizFromBank: { scene: 'cathedral' }, next: 'quiz2' },
+    quiz2: { quizFromBank: { scene: 'cathedral' }, next: 'farewell' },
+    farewell: {
+      lines: [
+        "Well done! The Parade Banner is over there by the wall — go ahead and take it.",
+        "God bless ye, Paddy. May the road rise up to meet ye!",
+      ],
+      doneFlag: 'quiz_cathedral_done',
+    },
+    already_done: {
+      lines: ["May God be with ye, Paddy! Take the banner and go!"],
+    },
+  },
+
+  seamus: {
+    root: {
+      lines: [
+        "Ho there, young Paddy! Here to see the old steam engines?",
+        "My grandfather came from County Mayo during the Famine. Worked the coal mines here.",
+        "Then his son — my father — worked the railroads. Irish hands built this country, they did!",
+        "Tens of thousands of Irish immigrants came to the Wyoming Valley. Coal and steel, that was Scranton.",
+        "Before I give ye what ye need, let's see if ye know the story!",
+      ],
+      next: 'quiz1',
+    },
+    quiz1: { quizFromBank: { scene: 'steamtown' }, next: 'quiz2' },
+    quiz2: { quizFromBank: { scene: 'steamtown' }, next: 'farewell' },
+    farewell: {
+      lines: [
+        "Sharp as a tack! That Lucky Horseshoe on the fence — it's yours for the parade.",
+        "Open end up, now! That's how ye keep the luck inside!",
+        "Give 'em a good parade, Paddy. Make the old Irish proud!",
+      ],
+      doneFlag: 'quiz_steamtown_done',
+    },
+    already_done: {
+      lines: ["Go on, Paddy! Take that horseshoe and march on!"],
+    },
+  },
+
+  maggie: {
+    root: {
+      lines: [
+        "Paddy! Thank goodness! We've been looking for someone to help!",
+        "The Electric City sign is lit up green just for the parade — isn't it gorgeous?",
+        "Oh! I just remembered — someone left a Green Light Bulb on the sidewalk over there.",
+        "We need it to light the parade route! But first — parade trivia time!",
+      ],
+      next: 'quiz1',
+    },
+    quiz1: { quizFromBank: { scene: 'lackawanna' }, next: 'quiz2' },
+    quiz2: { quizFromBank: { scene: 'lackawanna' }, next: 'farewell' },
+    farewell: {
+      lines: [
+        "Wonderful! The green light bulb is right over there — grab it quick!",
+        "Then head to Mulberry and Wyoming to find Grand Marshal O'Brien.",
+        "You're almost there, Paddy! The parade is counting on ye!",
+      ],
+      doneFlag: 'quiz_lackawanna_done',
+    },
+    already_done: {
+      lines: ["You've got everything! Go find the Grand Marshal — hurry!"],
+    },
+  },
+
+  marshal: {
+    root: {
+      lines: [
+        "Paddy, lad! I've been waiting for ye!",
+        "The parade cannot begin without those four items.",
+        "Every St. Patrick's Parade in Scranton tells our story — the story of Irish immigrants.",
+        "They came with nothing but their faith and their courage. And they built this city.",
+        "Do ye have everything? Let's find out with one last bit of trivia!",
+      ],
+      next: 'quiz1',
+    },
+    quiz1: { quizFromBank: { scene: 'parade' }, next: 'quiz2' },
+    quiz2: { quizFromBank: { scene: 'parade' }, next: 'check_items' },
+    check_items: {
+      checkItems: true,
+    },
+    items_ready: {
+      lines: [
+        "All four items! The Shamrock Bouquet, the Parade Banner, the Lucky Horseshoe, and the Green Light Bulb!",
+        "Scranton, are ye ready?! LET THE PARADE BEGIN!!!",
+        "ERIN GO BRAGH!",
+      ],
+      winGame: true,
+    },
+    items_missing: {
+      lines: [
+        "Hmm, we're still missing some items, Paddy.",
+        "Check your inventory — you'll need all four before we can start!",
+        "The Shamrock Bouquet, Parade Banner, Lucky Horseshoe, and Green Light Bulb.",
+      ],
+    },
+  },
+};
+
+class DialogueSystem {
+  constructor(game) {
+    this.game = game;
+    this.active = false;
+    this.lines = [];
+    this.lineIndex = 0;
+    this.npcName = '';
+    this.npcType = '';
+    this.resolve = null;
+    this.tapReady = false;
+    this.quizActive = false;
+    this.quizData = null;
+    this.quizSelected = null;
+    this.quizFeedback = null;
+    this.quizFeedbackTimer = 0;
+    this.quizResolve = null;
+  }
+
+  async run(dialogueId, npcType, npcName) {
+    const tree = DIALOGUES[dialogueId];
+    if (!tree) return;
+
+    this.active = true;
+    this.npcType = npcType;
+    this.npcName = npcName;
+    this.game.mode = 'dialogue';
+
+    // Check if this dialogue has been completed using the farewell node's doneFlag
+    const farewell = tree.farewell;
+    const isDone = farewell && farewell.doneFlag && this.game.state.getFlag(farewell.doneFlag);
+    const nodeId = (isDone && tree.already_done) ? 'already_done' : 'root';
+    await this.runNode(tree, nodeId);
+
+    this.active = false;
+    this.game.mode = 'play';
+  }
+
+  async runNode(tree, nodeId) {
+    const node = tree[nodeId];
+    if (!node) return;
+
+    if (node.lines) {
+      await this.showLines(node.lines);
+    }
+
+    if (node.quiz) {
+      await this.showQuiz(node.quiz);
+    }
+
+    if (node.quizFromBank) {
+      const { scene } = node.quizFromBank;
+      const qs = this.game.sessionQuestions[scene] || [];
+      const ptr = this.game.sessionQuestionPtrs[scene] || 0;
+      const q = qs[ptr];
+      this.game.sessionQuestionPtrs[scene] = ptr + 1;
+      if (q) await this.showQuiz(q);
+    }
+
+    if (node.doneFlag) {
+      this.game.state.setFlag(node.doneFlag, true);
+    }
+
+    if (node.checkItems) {
+      const hasAll = ['has_shamrock','has_banner','has_horseshoe','has_bulb']
+        .every(f => this.game.state.getFlag(f));
+      await this.runNode(tree, hasAll ? 'items_ready' : 'items_missing');
+      return;
+    }
+
+    if (node.winGame) {
+      this.game.state.setFlag('parade_started', true);
+      return;
+    }
+
+    if (node.next) {
+      await this.runNode(tree, node.next);
+    }
+  }
+
+  showLines(lines) {
+    return new Promise(resolve => {
+      this.lines = Array.isArray(lines) ? lines : [lines];
+      this.lineIndex = 0;
+      this.resolve = resolve;
+      this.tapReady = false;
+    });
+  }
+
+  showQuiz(quizData) {
+    return new Promise(resolve => {
+      this.quizActive = true;
+      this.quizData = quizData;
+      this.quizSelected = null;
+      this.quizFeedback = null;
+      this.quizFeedbackTimer = 0;
+      this.quizResolve = resolve;
+    });
+  }
+
+  handleTap(x, y) {
+    if (!this.active) return false;
+
+    if (this.quizActive) {
+      this._handleQuizTap(x, y);
+      return true;
+    }
+
+    if (this.lines.length > 0) {
+      if (this.quizFeedbackTimer > 0) return true;
+      this.lineIndex++;
+      if (this.lineIndex >= this.lines.length) {
+        this.lines = [];
+        this.lineIndex = 0;
+        const r = this.resolve;
+        this.resolve = null;
+        if (r) r();
+      }
+      return true;
+    }
+    return false;
+  }
+
+  // Shared feedback panel coords — used by both _handleQuizTap and _renderQuiz
+  static get FEEDBACK_BTN() {
+    return { x: W / 2 - 42, y: 216, w: 84, h: 14 };
+  }
+
+  _handleQuizTap(x, y) {
+    if (this.quizFeedback) {
+      // Only the OK/Continue button dismisses feedback
+      const btn = DialogueSystem.FEEDBACK_BTN;
+      if (x >= btn.x && x <= btn.x + btn.w && y >= btn.y && y <= btn.y + btn.h) {
+        if (this.quizFeedback.correct) {
+          this.quizActive = false;
+          this.quizData = null;
+          this.quizFeedback = null;
+          this.quizSelected = null;
+          const r = this.quizResolve;
+          this.quizResolve = null;
+          if (r) r(true);
+        } else {
+          // Wrong answer — clear feedback so player can try again
+          this.quizFeedback = null;
+          this.quizSelected = null;
+        }
+      }
+      return;
+    }
+    const optCount = this.quizData.options.length;
+    const bh = 30, bw = 260, bx = 30, by0 = 92, optionGap = 3;
+    for (let i = 0; i < optCount; i++) {
+      const by = by0 + i * (bh + optionGap);
+      if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) {
+        this.quizSelected = i;
+        const correct = (i === this.quizData.correct);
+        if (correct) {
+          const pts = Math.round(10 * (this.game.scoreMultiplier || 1));
+          this.game.state.addScore(pts);
+          if (this.quizData.flag) this.game.state.setFlag(this.quizData.flag, true);
+          if (this.quizData.id) this.game.state.setFlag(`answered_${this.quizData.id}`, true);
+          this.quizFeedback = { correct: true, msg: `+${pts} points! Well done!` };
+        } else {
+          this.quizFeedback = { correct: false, msg: this.quizData.hint };
+        }
+        break;
+      }
+    }
+  }
+
+  update(dt) {
+    // Feedback is now dismissed by tapping the OK button — no timer needed
+  }
+
+  render(ctx) {
+    if (this.quizActive) {
+      this._renderQuiz(ctx);
+      return;
+    }
+    if (this.lines.length > 0 && this.lineIndex < this.lines.length) {
+      this._renderDialogue(ctx);
+    }
+  }
+
+  _renderDialogue(ctx) {
+    const text = this.lines[this.lineIndex];
+    const bx = 10, by = VIEWPORT_H - 70, bw = 300, bh = 65;
+    roundRect(ctx, bx, by, bw, bh, 6, PALETTE.popupBg, PALETTE.popupBorder);
+    // NPC name tag
+    roundRect(ctx, bx + 6, by - 10, 80, 14, 4, PALETTE.darkGreen, PALETTE.popupBorder);
+    ctx.fillStyle = PALETTE.gold;
+    ctx.font = 'bold 7px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(this.npcName, bx + 10, by - 2);
+    // Text
+    ctx.fillStyle = PALETTE.white;
+    ctx.font = '8px sans-serif';
+    wrapText(ctx, text, bx + 8, by + 12, bw - 16, 10);
+    // Advance hint
+    ctx.fillStyle = PALETTE.emerald;
+    ctx.font = '7px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('Tap to continue ▶', bx + bw - 6, by + bh - 5);
+    ctx.textAlign = 'left';
+  }
+
+  _renderQuiz(ctx) {
+    // Full screen overlay
+    ctx.fillStyle = 'rgba(0,15,0,0.92)';
+    ctx.fillRect(0, 0, W, H);
+
+    // Title bar (compact: y=4, h=18)
+    roundRect(ctx, 20, 4, 280, 18, 5, PALETTE.darkGreen, PALETTE.popupBorder);
+    ctx.fillStyle = PALETTE.gold;
+    ctx.font = 'bold 9px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('☘  QUIZ TIME!  ☘', W / 2, 16);
+
+    // Question panel background
+    roundRect(ctx, 10, 26, 300, 60, 4, 'rgba(0,30,0,0.7)', '#225522');
+    ctx.fillStyle = PALETTE.white;
+    ctx.font = '8px sans-serif';
+    ctx.textAlign = 'left';
+    const qEndY = wrapText(ctx, this.quizData.question, 16, 36, 288, 10);
+
+    // "Tap an answer" hint between question and options
+    ctx.fillStyle = PALETTE.emerald;
+    ctx.font = '7px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Tap an answer:', W / 2, Math.min(qEndY + 4, 86));
+
+    // Options (compact: by0=92, gap=3)
+    const bh = 30, bw = 260, bx = 30, by0 = 92, optionGap = 3;
+    const labels = ['A', 'B', 'C', 'D'];
+    for (let i = 0; i < this.quizData.options.length; i++) {
+      const by = by0 + i * (bh + optionGap);
+      let fill = PALETTE.darkGreen, stroke = PALETTE.popupBorder;
+      if (this.quizSelected === i && this.quizFeedback) {
+        fill = this.quizFeedback.correct ? '#004400' : '#440000';
+        stroke = this.quizFeedback.correct ? '#00ff44' : '#ff4444';
+      }
+      roundRect(ctx, bx, by, bw, bh, 5, fill, stroke);
+      ctx.fillStyle = PALETTE.gold;
+      ctx.font = 'bold 9px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(labels[i] + '.', bx + 8, by + 19);
+      ctx.fillStyle = PALETTE.white;
+      ctx.font = '8px sans-serif';
+      wrapText(ctx, this.quizData.options[i], bx + 24, by + 12, bw - 30, 10);
+    }
+
+    // Feedback modal panel (overlays bottom options when answer is given)
+    if (this.quizFeedback) {
+      const correct = this.quizFeedback.correct;
+      const panelX = 10, panelY = 142, panelW = 300, panelH = 88;
+      roundRect(ctx, panelX, panelY, panelW, panelH, 6,
+        correct ? 'rgba(0,40,0,0.97)' : 'rgba(40,0,0,0.97)',
+        correct ? '#00cc44' : '#cc4444');
+
+      // Header
+      ctx.fillStyle = correct ? '#00ff88' : '#ff8888';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(correct ? '\u2713  Correct!' : '\u2717  Not quite!', W / 2, panelY + 14);
+
+      // Message text (score or hint)
+      ctx.fillStyle = PALETTE.white;
+      ctx.font = '8px sans-serif';
+      ctx.textAlign = 'center';
+      wrapText(ctx, this.quizFeedback.msg, W / 2, panelY + 28, 280, 10);
+
+      // OK / Try Again button
+      const btn = DialogueSystem.FEEDBACK_BTN;
+      roundRect(ctx, btn.x, btn.y, btn.w, btn.h, 3,
+        correct ? '#006622' : '#662200',
+        correct ? '#00ff44' : '#ff8844');
+      ctx.fillStyle = PALETTE.white;
+      ctx.font = 'bold 8px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(correct ? 'Continue \u25b6' : 'Try Again \u25b6', btn.x + btn.w / 2, btn.y + 10);
+    }
+
+    ctx.textAlign = 'left';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SECTION 8: UI SYSTEM
+// ═══════════════════════════════════════════════════════════════════
+
+const ITEM_IDS = ['shamrock_bouquet', 'parade_banner', 'horseshoe', 'green_bulb'];
+const ITEM_NAMES = {
+  shamrock_bouquet: 'Shamrock Bouquet',
+  parade_banner: 'Parade Banner',
+  horseshoe: 'Lucky Horseshoe',
+  green_bulb: 'Green Light Bulb',
+};
+
+class UISystem {
+  constructor(game) {
+    this.game = game;
+    this.popup = null;      // { x, y, target, verbs }
+    this.selectedItem = null;
+    this.usingItem = null;  // item being used (waiting for target hotspot)
+  }
+
+  showPopup(x, y, target, verbs) {
+    // Clamp so popup stays on screen
+    const bw = 70, bh = verbs.length * 20 + 6;
+    let px = Math.min(x, W - bw - 4);
+    let py = Math.max(4, Math.min(y - bh / 2, VIEWPORT_H - bh - 4));
+    this.popup = { x: px, y: py, target, verbs };
+  }
+
+  closePopup() { this.popup = null; }
+
+  handleTap(x, y) {
+    if (!this.popup) return false;
+    const { verbs, target } = this.popup;
+    const bw = 70, bh = 18;
+    const px = this.popup.x, py = this.popup.y;
+    for (let i = 0; i < verbs.length; i++) {
+      const by = py + 4 + i * (bh + 2);
+      if (x >= px && x <= px + bw && y >= by && y <= by + bh) {
+        this.closePopup();
+        this.game.handleVerb(verbs[i], target);
+        return true;
+      }
+    }
+    // Tap outside popup = close
+    this.closePopup();
+    return false;
+  }
+
+  handleInventoryTap(x, y) {
+    if (y < INVENTORY_Y) return false;
+    const slotW = W / 4;
+    for (let i = 0; i < ITEM_IDS.length; i++) {
+      const itemId = ITEM_IDS[i];
+      if (!this.game.inventory.has(itemId)) continue;
+      const sx = i * slotW;
+      if (x >= sx && x < sx + slotW) {
+        if (this.usingItem === itemId) {
+          this.usingItem = null;
+        } else {
+          this.usingItem = itemId;
+          this.selectedItem = itemId;
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+
+  render(ctx) {
+    this._renderInventoryBar(ctx);
+    if (this.popup) this._renderPopup(ctx);
+    if (this.usingItem) this._renderUsingCursor(ctx);
+    this._renderHUD(ctx);
+  }
+
+  _renderInventoryBar(ctx) {
+    ctx.fillStyle = '#0a2a0a';
+    ctx.fillRect(0, INVENTORY_Y, W, INVENTORY_H);
+    ctx.strokeStyle = PALETTE.popupBorder;
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, INVENTORY_Y); ctx.lineTo(W, INVENTORY_Y); ctx.stroke();
+
+    const slotW = W / 4;
+    for (let i = 0; i < ITEM_IDS.length; i++) {
+      const itemId = ITEM_IDS[i];
+      const has = this.game.inventory.has(itemId);
+      const sx = i * slotW;
+      // Slot background
+      const isSelected = this.usingItem === itemId;
+      ctx.fillStyle = isSelected ? '#004422' : '#0a1a0a';
+      ctx.fillRect(sx + 1, INVENTORY_Y + 1, slotW - 2, INVENTORY_H - 2);
+      if (isSelected) {
+        ctx.strokeStyle = PALETTE.gold;
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(sx + 1, INVENTORY_Y + 1, slotW - 2, INVENTORY_H - 2);
+      }
+      // Item icon or placeholder
+      if (has) {
+        drawItemIcon(ctx, sx + slotW / 2, INVENTORY_Y + INVENTORY_H / 2, itemId);
+      } else {
+        // Empty slot marker
+        ctx.strokeStyle = '#224422';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(sx + slotW / 2 - 10, INVENTORY_Y + 12, 20, 20);
+        ctx.strokeStyle = '#224422';
+        ctx.beginPath(); ctx.moveTo(sx + slotW / 2 - 6, INVENTORY_Y + 22);
+        ctx.lineTo(sx + slotW / 2 + 6, INVENTORY_Y + 22); ctx.stroke();
+      }
+      // Slot divider
+      if (i > 0) {
+        ctx.strokeStyle = '#224422'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(sx, INVENTORY_Y + 2); ctx.lineTo(sx, INVENTORY_Y + INVENTORY_H - 2); ctx.stroke();
+      }
+    }
+  }
+
+  _renderPopup(ctx) {
+    const { x, y, verbs } = this.popup;
+    const bw = 70, bh = 18;
+    const totalH = verbs.length * (bh + 2) + 6;
+    roundRect(ctx, x, y, bw, totalH, 5, PALETTE.popupBg, PALETTE.popupBorder);
+    for (let i = 0; i < verbs.length; i++) {
+      const by = y + 4 + i * (bh + 2);
+      roundRect(ctx, x + 3, by, bw - 6, bh, 3, '#004422', PALETTE.emerald);
+      ctx.fillStyle = PALETTE.white;
+      ctx.font = 'bold 8px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(verbs[i].charAt(0).toUpperCase() + verbs[i].slice(1), x + bw / 2, by + 12);
+      ctx.textAlign = 'left';
+    }
+  }
+
+  _renderUsingCursor(ctx) {
+    ctx.fillStyle = PALETTE.gold;
+    ctx.font = '7px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Using: ' + ITEM_NAMES[this.usingItem], W / 2, INVENTORY_Y - 6);
+    ctx.fillText('Tap a hotspot to USE it', W / 2, INVENTORY_Y - 15);
+    ctx.textAlign = 'left';
+  }
+
+  _renderHUD(ctx) {
+    const coinsFound = LUCKY_COINS.filter(c => this.game.state.getFlag(c.id)).length;
+    const hudW = 130;
+    ctx.fillStyle = 'rgba(0,20,0,0.75)';
+    ctx.fillRect(W - hudW - 2, 2, hudW, 14);
+    ctx.strokeStyle = PALETTE.popupBorder; ctx.lineWidth = 1;
+    ctx.strokeRect(W - hudW - 2, 2, hudW, 14);
+    drawShamrock(ctx, W - hudW + 4, 10, 4, PALETTE.emerald);
+    ctx.fillStyle = PALETTE.gold;
+    ctx.font = 'bold 7px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(`Score: ${this.game.state.score}`, W - hudW + 14, 12);
+    ctx.fillStyle = '#ffd700';
+    ctx.fillText(`\u{1FA99}${coinsFound}/5`, W - 58, 12);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SECTION 9: GAME ENGINE
+// ═══════════════════════════════════════════════════════════════════
+
+class Game {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.input = new Input(canvas);
+    this.state = new GameState();
+    this.inventory = new Set();
+    this.dialogue = new DialogueSystem(this);
+    this.ui = new UISystem(this);
+
+    this.mode = 'title'; // 'title', 'help', 'difficulty', 'play', 'dialogue', 'transition', 'win'
+    this.helpPage = 0;
+    this.difficulty = 2;       // 1=easy, 2=medium, 3=hard
+    this.scoreMultiplier = 1;  // 1, 1.5, or 2
+    this.sessionQuestions = {};
+    this.sessionQuestionPtrs = {};
+    this.currentScene = null;
+    this.sceneId = null;
+    this.bgCache = null;
+
+    // Paddy position and walking
+    this.paddyX = 80;
+    this.paddyY = 155;
+    this.paddyDir = 1;
+    this.paddyTargetX = 80;
+    this.paddyTargetY = 155;
+    this.paddyWalking = false;
+    this.paddyAnimFrame = 0;
+    this.paddyAnimTimer = 0;
+    this.paddyCelebrate = false;
+    this.celebrateTimer = 0;
+
+    // Walk target indicator
+    this.walkTargetTimer = 0;
+    this.walkTargetX = 0;
+    this.walkTargetY = 0;
+
+    // Transition
+    this.transAlpha = 0;
+    this.transPhase = 'none'; // 'fadeout', 'fadein', 'none'
+    this.transTarget = null;
+    this.transResolve = null;
+
+    // Message display
+    this.message = '';
+    this.messageTimer = 0;
+
+    this.lastTime = 0;
+    this.animTimer = 0;
+
+    // Win state
+    this.winTimer = 0;
+    this.confetti = [];
+
+    // Coal cart push animation
+    this.cartPushTimer = 0;
+    this.cartOffset = 0;
+
+    // Float decoration state
+    this.floatDecorated = false;
+  }
+
+  start() {
+    this.lastTime = performance.now();
+    requestAnimationFrame(t => this.loop(t));
+  }
+
+  loop(ts) {
+    const dt = Math.min((ts - this.lastTime) / 1000, 0.05);
+    this.lastTime = ts;
+    this.update(dt);
+    this.render();
+    requestAnimationFrame(t => this.loop(t));
+  }
+
+  update(dt) {
+    if (this.mode === 'transition') return;
+
+    if (this.mode === 'title') {
+      this.animTimer += dt;
+      const tap = this.input.consumeTap();
+      if (tap) {
+        // How to Play button area
+        if (tap.x >= 90 && tap.x <= 230 && tap.y >= 174 && tap.y <= 192) {
+          this.helpPage = 0;
+          this.mode = 'help';
+        } else {
+          this.mode = 'difficulty';
+        }
+      }
+      return;
+    }
+
+    if (this.mode === 'difficulty') {
+      this.animTimer += dt;
+      const tap = this.input.consumeTap();
+      if (tap) {
+        // Easy button: y 90..120
+        if (tap.y >= 90 && tap.y <= 120) {
+          this.difficulty = 1; this.scoreMultiplier = 1; this.startGame();
+        }
+        // Medium button: y 128..158
+        else if (tap.y >= 128 && tap.y <= 158) {
+          this.difficulty = 2; this.scoreMultiplier = 1.5; this.startGame();
+        }
+        // Hard button: y 166..196
+        else if (tap.y >= 166 && tap.y <= 196) {
+          this.difficulty = 3; this.scoreMultiplier = 2; this.startGame();
+        }
+        // Back button
+        else if (tap.x >= 15 && tap.x <= 70 && tap.y >= H - 30 && tap.y <= H - 12) {
+          this.mode = 'title';
+        }
+      }
+      return;
+    }
+
+    if (this.mode === 'help') {
+      this.animTimer += dt;
+      const tap = this.input.consumeTap();
+      if (tap) {
+        // Back button: x 15..70, y H-30..H-12
+        if (tap.x >= 15 && tap.x <= 70 && tap.y >= H - 30 && tap.y <= H - 12) {
+          if (this.helpPage === 0) { this.mode = 'title'; }
+          else { this.helpPage--; }
+        }
+        // Next/Done button: x W-70..W-15, y H-30..H-12
+        else if (tap.x >= W - 70 && tap.x <= W - 15 && tap.y >= H - 30 && tap.y <= H - 12) {
+          if (this.helpPage >= 1) { this.mode = 'title'; }
+          else { this.helpPage++; }
+        }
+      }
+      return;
+    }
+
+    if (this.mode === 'win') {
+      this.winTimer += dt;
+      // Animate confetti
+      for (const c of this.confetti) {
+        c.x += c.vx * dt;
+        c.y += c.vy * dt;
+        c.vy += 80 * dt;
+        c.rot += c.vr * dt;
+        if (c.y > H + 10) { c.y = -10; c.x = Math.random() * W; c.vy = 40 + Math.random() * 60; }
+      }
+      const tap = this.input.consumeTap();
+      if (tap && this.winTimer > 2) {
+        this.mode = 'title';
+        this.state.reset();
+        this.inventory.clear();
+        this.bgCache = null;
+      }
+      return;
+    }
+
+    if (this.mode === 'dialogue') {
+      this.dialogue.update(dt);
+      const tap = this.input.peekTap();
+      if (tap) {
+        const consumed = this.dialogue.handleTap(tap.x, tap.y);
+        if (consumed) this.input.consumeTap();
+        // Check if dialogue ended
+        if (!this.dialogue.active) {
+          this.mode = 'play';
+          if (this.state.getFlag('parade_started')) {
+            this._triggerWin();
+          }
+        }
+      }
+      return;
+    }
+
+    if (this.mode === 'play') {
+      this.animTimer += dt;
+      // Animate Paddy
+      this.paddyAnimTimer += dt;
+      if (this.paddyAnimTimer > 0.15) {
+        this.paddyAnimTimer = 0;
+        this.paddyAnimFrame++;
+      }
+
+      if (this.celebrateTimer > 0) {
+        this.celebrateTimer -= dt;
+        if (this.celebrateTimer <= 0) this.paddyCelebrate = false;
+      }
+
+      // Walk Paddy toward target
+      if (this.paddyWalking) {
+        const dx = this.paddyTargetX - this.paddyX;
+        const dy = this.paddyTargetY - this.paddyY;
+        const dist = Math.hypot(dx, dy);
+        const speed = 80;
+        if (dist < speed * dt + 1) {
+          this.paddyX = this.paddyTargetX;
+          this.paddyY = this.paddyTargetY;
+          this.paddyWalking = false;
+        } else {
+          this.paddyX += (dx / dist) * speed * dt;
+          this.paddyY += (dy / dist) * speed * dt;
+          this.paddyDir = dx > 0 ? 1 : -1;
+        }
+      }
+
+      // Walk target timer
+      if (this.walkTargetTimer > 0) this.walkTargetTimer -= dt;
+
+      // Message timer
+      if (this.messageTimer > 0) {
+        this.messageTimer -= dt;
+      }
+
+      // Coal cart push animation
+      if (this.cartPushTimer > 0) {
+        this.cartOffset = 15 * (1 - this.cartPushTimer / 0.5);
+        this.cartPushTimer -= dt;
+        if (this.cartPushTimer <= 0) { this.cartPushTimer = 0; this.cartOffset = 15; }
+      }
+
+      // Handle tap
+      const tap = this.input.peekTap();
+      if (tap) {
+        if (this._handlePlayTap(tap.x, tap.y)) {
+          this.input.consumeTap();
+        }
+      }
+    }
+  }
+
+  _handlePlayTap(x, y) {
+    // 1. Inventory bar?
+    if (y >= INVENTORY_Y) {
+      return this.ui.handleInventoryTap(x, y);
+    }
+
+    // 2. HUD score area?
+    if (x >= W - 80 && y < 18) return false;
+
+    // 3. Existing popup?
+    if (this.ui.popup) {
+      return this.ui.handleTap(x, y);
+    }
+
+    // 4. NPC hit?
+    const scene = this.currentScene;
+    if (!scene) return false;
+    for (const npc of scene.npcs) {
+      const npcRect = makeRect(npc.x - 14, npc.y - 55, 28, 56);
+      if (rectContains(npcRect, x, y)) {
+        this._walkThenDo(npc.x - 20, npc.y, () => this._talkToNPC(npc));
+        return true;
+      }
+    }
+
+    // 4b. Lucky Coin hit?
+    for (const coin of LUCKY_COINS) {
+      if (coin.scene !== this.sceneId) continue;
+      if (this.state.getFlag(coin.id)) continue;
+      const dx = x - coin.x, dy = y - coin.y;
+      if (dx * dx + dy * dy < 100) {
+        this.collectCoin(coin);
+        return true;
+      }
+    }
+
+    // 5. Hotspot hit?
+    for (const hs of scene.hotspots) {
+      if (rectContains(hs.rect, x, y)) {
+        if (this.ui.usingItem) {
+          // Using item on hotspot
+          this._useItemOnHotspot(this.ui.usingItem, hs);
+          this.ui.usingItem = null;
+          return true;
+        }
+        let verbs = [...hs.verbs];
+        // Filter 'take' if already taken or requireFlag not met
+        if (hs.item && this.inventory.has(hs.item)) {
+          verbs = verbs.filter(v => v !== 'take');
+        }
+        if (hs.requireFlag && !this.state.getFlag(hs.requireFlag)) {
+          verbs = verbs.filter(v => v !== 'take');
+        }
+        if (hs.isExit) {
+          verbs = ['go'];
+        }
+        if (verbs.length === 0) return false;
+        this.ui.showPopup(x, y, hs, verbs);
+        return true;
+      }
+    }
+
+    // 6. Clear usingItem if tapping elsewhere
+    if (this.ui.usingItem) {
+      this.ui.usingItem = null;
+      return true;
+    }
+
+    // 7. Walk to tapped point
+    if (y < VIEWPORT_H) {
+      this.paddyTargetX = x;
+      this.paddyTargetY = Math.min(y, VIEWPORT_H - 15);
+      this.paddyWalking = true;
+      this.walkTargetX = this.paddyTargetX;
+      this.walkTargetY = this.paddyTargetY;
+      this.walkTargetTimer = 0.6;
+    }
+    return true;
+  }
+
+  _walkThenDo(tx, ty, fn) {
+    this.paddyTargetX = tx;
+    this.paddyTargetY = Math.min(ty, VIEWPORT_H - 15);
+    this.paddyWalking = true;
+    // Poll for arrival
+    const check = () => {
+      if (!this.paddyWalking) { fn(); return; }
+      setTimeout(check, 50);
+    };
+    setTimeout(check, 50);
+  }
+
+  collectCoin(coin) {
+    this.state.setFlag(coin.id, true);
+    this.state.addScore(5);
+    this.paddyCelebrate = true;
+    this.celebrateTimer = 1.2;
+    // Show dialogue box with fun fact
+    const scene = this.currentScene;
+    const npc = scene && scene.npcs[0];
+    this.dialogue.active = true;
+    this.dialogue.npcType = npc ? npc.type : 'siobhan';
+    this.dialogue.npcName = '☘ Lucky Coin! +5pts';
+    this.dialogue.quizActive = false;
+    this.dialogue.quizFeedbackTimer = 0;
+    this.dialogue.lines = [coin.dialogue];
+    this.dialogue.lineIndex = 0;
+    this.mode = 'dialogue';
+    this.dialogue.resolve = () => {
+      this.dialogue.active = false;
+      this.mode = 'play';
+    };
+  }
+
+  _renderPickupItems(ctx) {
+    const s = this.sceneId;
+    if (!s) return;
+    if (s === 'pub' && !this.state.getFlag('has_shamrock')) {
+      ctx.fillStyle = PALETTE.wood;
+      ctx.fillRect(148, 122, 44, 6); ctx.fillRect(155, 128, 5, 12); ctx.fillRect(183, 128, 5, 12);
+      drawShamrock(ctx, 170, 118, 8, PALETTE.emerald);
+    }
+    if (s === 'cathedral' && !this.state.getFlag('has_banner')) {
+      ctx.fillStyle = PALETTE.emerald; ctx.fillRect(290, 80, 25, 18);
+      ctx.fillStyle = PALETTE.white;   ctx.fillRect(290, 98, 25, 18);
+      ctx.fillStyle = PALETTE.orange;  ctx.fillRect(290, 116, 25, 18);
+      ctx.fillStyle = PALETTE.wood;    ctx.fillRect(288, 78, 3, 58);
+    }
+    if (s === 'steamtown' && !this.state.getFlag('has_horseshoe')) {
+      ctx.strokeStyle = PALETTE.brown; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(302, 90, 9, Math.PI, 0); ctx.stroke();
+      ctx.fillStyle = PALETTE.brown; ctx.fillRect(293, 90, 4, 7); ctx.fillRect(307, 90, 4, 7);
+    }
+    if (s === 'lackawanna' && !this.state.getFlag('has_bulb')) {
+      const bglow = ctx.createRadialGradient(270, 140, 1, 270, 140, 14);
+      bglow.addColorStop(0, 'rgba(0,255,100,0.4)'); bglow.addColorStop(1, 'rgba(0,255,100,0)');
+      ctx.fillStyle = bglow; ctx.beginPath(); ctx.arc(270, 140, 14, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = PALETTE.emerald; ctx.beginPath(); ctx.arc(270, 140, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#00ff66'; ctx.beginPath(); ctx.arc(267, 136, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = PALETTE.stone; ctx.fillRect(266, 147, 8, 6);
+    }
+    // Float decoration: draw item icons on float surface when decorated
+    if (s === 'parade' && this.floatDecorated) {
+      const items = ['shamrock_bouquet', 'parade_banner', 'horseshoe', 'green_bulb'];
+      const floatIconY = 122;
+      items.forEach((itemId, i) => {
+        const ix = 148 + i * 22;
+        ctx.save();
+        ctx.translate(ix, floatIconY);
+        ctx.scale(0.55, 0.55);
+        drawItemIcon(ctx, 0, 0, itemId);
+        ctx.restore();
+      });
+      // Gold sparkle star on float center
+      const sp = Math.sin(this.animTimer * 4) * 0.5 + 0.5;
+      ctx.fillStyle = `rgba(255,220,0,${0.5 + sp * 0.5})`;
+      ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('★', 185, 108);
+      ctx.textAlign = 'left';
+    }
+  }
+
+  _renderCoins(ctx) {
+    if (!this.sceneId) return;
+    const t = this.animTimer;
+    for (const coin of LUCKY_COINS) {
+      if (coin.scene !== this.sceneId) continue;
+      if (this.state.getFlag(coin.id)) continue;
+      const { x, y } = coin;
+      // Gold coin with radial gradient
+      const cg = ctx.createRadialGradient(x - 2, y - 2, 1, x, y, 6);
+      cg.addColorStop(0, '#ffe066');
+      cg.addColorStop(0.6, '#ffd700');
+      cg.addColorStop(1, '#b8860b');
+      ctx.fillStyle = cg;
+      ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#886600'; ctx.lineWidth = 1; ctx.stroke();
+      // Inner shamrock
+      drawShamrock(ctx, x, y - 1, 3, '#004422');
+      // Glint sparkle every 90 frames (based on animTimer)
+      const frame = Math.floor(t * 60);
+      const phase = frame % 90;
+      if (phase < 10) {
+        const progress = phase / 10;
+        const starR = progress * 5;
+        ctx.strokeStyle = `rgba(255,255,200,${1 - progress})`;
+        ctx.lineWidth = 1;
+        for (let a = 0; a < Math.PI * 2; a += Math.PI / 2) {
+          ctx.beginPath();
+          ctx.moveTo(x + Math.cos(a) * 1.5, y + Math.sin(a) * 1.5);
+          ctx.lineTo(x + Math.cos(a) * starR, y + Math.sin(a) * starR);
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  _getHoverLabel() {
+    const { usingItem, popup } = this.ui;
+    if (usingItem) return `Use ${ITEM_NAMES[usingItem]} on \u2026`;
+    if (popup) return popup.target.name || null;
+    const x = this.input.x, y = this.input.y;
+    if (y < 14 || y >= INVENTORY_Y) return null;
+    const scene = this.currentScene;
+    if (!scene) return null;
+    for (const npc of scene.npcs) {
+      if (rectContains(makeRect(npc.x - 14, npc.y - 55, 28, 56), x, y)) {
+        return this._npcDisplayName(npc.type);
+      }
+    }
+    for (const hs of scene.hotspots) {
+      if (rectContains(hs.rect, x, y)) return hs.name;
+    }
+    return null;
+  }
+
+  _renderHoverHighlight(ctx) {
+    if (this.ui.popup || this.ui.usingItem) return;
+    const scene = this.currentScene;
+    if (!scene) return;
+    const x = this.input.x, y = this.input.y;
+    const hoverInBounds = y >= 14 && y < INVENTORY_Y;
+
+    // Always draw faint outlines on all interactable objects (visible on touch too)
+    ctx.lineWidth = 1;
+    for (const hs of scene.hotspots) {
+      const hovered = hoverInBounds && rectContains(hs.rect, x, y);
+      ctx.strokeStyle = hovered ? 'rgba(0,255,100,0.55)' : 'rgba(0,255,100,0.15)';
+      ctx.strokeRect(hs.rect.x + 0.5, hs.rect.y + 0.5, hs.rect.w - 1, hs.rect.h - 1);
+    }
+    for (const npc of scene.npcs) {
+      const nr = makeRect(npc.x - 14, npc.y - 55, 28, 56);
+      const hovered = hoverInBounds && rectContains(nr, x, y);
+      const glowAlpha = hovered ? 0.18 : 0.06;
+      const glow = ctx.createRadialGradient(npc.x, npc.y - 28, 4, npc.x, npc.y - 28, 28);
+      glow.addColorStop(0, `rgba(0,255,100,${glowAlpha})`);
+      glow.addColorStop(1, 'rgba(0,255,100,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.arc(npc.x, npc.y - 28, 28, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  _renderAmbient(ctx) {
+    if (!this.sceneId) return;
+    const t = this.animTimer;
+    if (this.sceneId === 'pub') {
+      // Flicker the flames in the fireplace
+      const flicker = Math.sin(t * 13) * 0.12 + Math.sin(t * 7.3) * 0.06;
+      const scaleX = 1 + flicker, scaleY = 1 + flicker * 0.5;
+      ctx.save();
+      ctx.translate(45, 130);
+      ctx.scale(scaleX, scaleY);
+      ctx.translate(-45, -130);
+      const fr = Math.floor(120 + flicker * 40);
+      ctx.fillStyle = `rgb(255,${fr},0)`;
+      ctx.beginPath(); ctx.moveTo(25,130); ctx.bezierCurveTo(28,110,32,105,35,98); ctx.bezierCurveTo(38,105,40,112,38,130); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = `rgb(255,${Math.floor(100 + flicker * 60)},0)`;
+      ctx.beginPath(); ctx.moveTo(32,130); ctx.bezierCurveTo(35,112,39,107,42,100); ctx.bezierCurveTo(45,108,47,116,44,130); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = `rgb(255,${Math.floor(200 + flicker * 30)},0)`;
+      ctx.beginPath(); ctx.moveTo(38,130); ctx.bezierCurveTo(40,115,42,110,45,105); ctx.bezierCurveTo(47,111,48,120,46,130); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    } else if (this.sceneId === 'steamtown') {
+      // Rising steam puffs from locomotive stack (x=125, top y=84)
+      for (let i = 0; i < 3; i++) {
+        const phase = (t * 0.7 + i * 0.33) % 1;
+        const py = 84 - phase * 50;
+        const pr = 3 + phase * 9;
+        const alpha = (1 - phase) * 0.38;
+        ctx.fillStyle = `rgba(210,220,230,${alpha})`;
+        ctx.beginPath();
+        ctx.arc(125 + Math.sin(t * 1.8 + i) * 4, py, pr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // Coal cart offset (push animation)
+      if (this.cartOffset > 0) {
+        ctx.save();
+        ctx.translate(this.cartOffset, 0);
+        ctx.fillStyle = '#2a2a2a'; ctx.fillRect(240, 120, 60, 25);
+        ctx.fillStyle = '#111'; ctx.fillRect(240, 118, 60, 5);
+        for (let cx = 244; cx < 296; cx += 6) {
+          ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(cx, 120, 4, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#333'; ctx.beginPath(); ctx.arc(cx + 2, 118, 3, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.fillStyle = '#333'; ctx.beginPath(); ctx.arc(253, 145, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(275, 145, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+    } else if (this.sceneId === 'parade') {
+      // Crowd wave: left crowd arms oscillate
+      const wave = Math.sin(t * 2.5) * 5;
+      ctx.strokeStyle = '#334';
+      ctx.lineWidth = 1.5;
+      for (let pi = 0, px = 5; px < 130; px += 11, pi++) {
+        const ph = 22 + (px % 14);
+        const armWave = wave + Math.sin(t * 2.5 + pi * 0.8) * 4;
+        if (pi % 2 === 0) {
+          ctx.beginPath(); ctx.moveTo(px + 1, 110 - ph); ctx.lineTo(px - 4, 100 - ph + armWave); ctx.stroke();
+        } else {
+          ctx.beginPath(); ctx.moveTo(px + 5, 110 - ph); ctx.lineTo(px + 10, 100 - ph - armWave); ctx.stroke();
+        }
+      }
+    }
+  }
+
+  async _talkToNPC(npc) {
+    this.mode = 'dialogue';
+    await this.dialogue.run(npc.dialogueId, npc.type, this._npcDisplayName(npc.type));
+    if (!this.dialogue.active) {
+      this.mode = this.state.getFlag('parade_started') ? 'win' : 'play';
+      if (this.state.getFlag('parade_started')) this._triggerWin();
+    }
+  }
+
+  _npcDisplayName(type) {
+    const names = {
+      siobhan: 'Siobhan',
+      father_callahan: 'Father Callahan',
+      seamus: 'Old Seamus',
+      maggie: 'Maggie',
+      marshal: 'Grand Marshal O\'Brien',
+    };
+    return names[type] || type;
+  }
+
+  handleVerb(verb, target) {
+    if (verb === 'go') {
+      if (target.isExit && target.exitTo) {
+        // Warn if the scene's key item hasn't been collected yet
+        const itemWarnings = {
+          pub:        { flag: 'has_shamrock',  npc: 'Siobhan',          item: 'Shamrock Bouquet' },
+          cathedral:  { flag: 'has_banner',    npc: 'Father Callahan',  item: 'Parade Banner' },
+          steamtown:  { flag: 'has_horseshoe', npc: 'Old Seamus',       item: 'Lucky Horseshoe' },
+          lackawanna: { flag: 'has_bulb',      npc: 'Maggie',           item: 'Green Light Bulb' },
+        };
+        const warn = itemWarnings[this.sceneId];
+        if (warn && !this.state.getFlag(warn.flag)) {
+          const quizFlag = { pub: 'quiz_pub_done', cathedral: 'quiz_cathedral_done', steamtown: 'quiz_steamtown_done', lackawanna: 'quiz_lackawanna_done' }[this.sceneId];
+          if (!this.state.getFlag(quizFlag)) {
+            this.showMessage(`Wait — talk to ${warn.npc} first! They have the ${warn.item} for the parade.`);
+          } else {
+            this.showMessage(`Don't forget the ${warn.item}! Grab it before you go.`);
+          }
+          return;
+        }
+        this._walkThenDo(target.rect.x + target.rect.w / 2, VIEWPORT_H - 20, () => {
+          this.loadScene(target.exitTo);
+        });
+      }
+      return;
+    }
+    if (verb === 'talk') {
+      if (target.id === 'crowd' && this.sceneId === 'parade') {
+        // Crowd dialogue box
+        this.dialogue.active = true;
+        this.dialogue.npcName = 'The Crowd';
+        this.dialogue.npcType = 'marshal';
+        this.dialogue.quizActive = false;
+        this.dialogue.quizFeedbackTimer = 0;
+        this.dialogue.lines = [
+          "The crowd cheers: 'Go on, Paddy! Erin go Bragh!'",
+          "A little girl waves a tiny Irish flag and shouts 'Top o' the mornin', Paddy!'",
+          "An old man calls out: 'Make us proud, lad — we're all rooting for ye!'",
+        ];
+        this.dialogue.lineIndex = 0;
+        this.mode = 'dialogue';
+        this.dialogue.resolve = () => {
+          this.dialogue.active = false;
+          this.mode = 'play';
+        };
+      } else {
+        this.showMessage(this.currentScene.dialogues[target.id] || 'Nothing interesting here.');
+      }
+      return;
+    }
+    if (verb === 'take') {
+      if (target.item) {
+        this._walkThenDo(target.rect.x + target.rect.w / 2, target.rect.y + target.rect.h, () => {
+          this.inventory.add(target.item);
+          this.state.setFlag(target.flag || `has_${target.item}`, true);
+          this.showMessage('Paddy picks up the ' + ITEM_NAMES[target.item] + '!');
+          this.paddyCelebrate = true;
+          this.celebrateTimer = 1.5;
+        });
+      }
+      return;
+    }
+    if (verb === 'push') {
+      if (target.id === 'coal_cart' && this.sceneId === 'steamtown') {
+        this._walkThenDo(target.rect.x, target.rect.y + target.rect.h, () => {
+          this.showMessage("Paddy shoves the cart with a grunt. 'Heavy as sin!' he says. A railroad spike clatters out!");
+          this.cartPushTimer = 0.5;
+          this.cartOffset = 0;
+        });
+      } else {
+        this.showMessage(this.currentScene.dialogues[target.id] || 'Nothing interesting to see here.');
+      }
+      return;
+    }
+    if (verb === 'look') {
+      this.showMessage(this.currentScene.dialogues[target.id] || 'Nothing interesting to see here.');
+      return;
+    }
+    if (verb === 'use') {
+      if (target.isExit) {
+        this._walkThenDo(target.rect.x + target.rect.w / 2, VIEWPORT_H - 20, () => {
+          this.loadScene(target.exitTo);
+        });
+      } else if (target.id === 'float' && this.sceneId === 'parade') {
+        if (this.inventory.size === 0) {
+          this.showMessage("The float needs decorating! Collect all four items and bring them here.");
+        } else {
+          this._walkThenDo(170, 140, () => {
+            const missing = ['shamrock_bouquet','parade_banner','horseshoe','green_bulb']
+              .filter(i => !this.inventory.has(i)).map(i => ITEM_NAMES[i]);
+            if (missing.length === 0) {
+              this.floatDecorated = true;
+              this.showMessage("All items are on the float! Now talk to Grand Marshal O'Brien to start the parade!");
+            } else {
+              this.showMessage('Still need: ' + missing.join(', '));
+            }
+          });
+        }
+      } else {
+        this.showMessage(this.currentScene.dialogues[target.id] || "Paddy isn't sure what to do with that.");
+      }
+    }
+  }
+
+  _useItemOnHotspot(itemId, hotspot) {
+    if (hotspot.id === 'float' && this.sceneId === 'parade') {
+      const hasAll = ['shamrock_bouquet','parade_banner','horseshoe','green_bulb']
+        .every(i => this.inventory.has(i));
+      if (hasAll) {
+        this.floatDecorated = true;
+        this.showMessage("All items are on the float! Now talk to Grand Marshal O'Brien to start the parade!");
+      } else {
+        const missing = ['shamrock_bouquet','parade_banner','horseshoe','green_bulb']
+          .filter(i => !this.inventory.has(i))
+          .map(i => ITEM_NAMES[i]).join(', ');
+        this.showMessage('Still missing: ' + missing);
+      }
+    } else {
+      this.showMessage("That doesn't seem to work here.");
+    }
+  }
+
+  showMessage(msg) {
+    this.message = msg;
+    this.messageTimer = 4.0;
+  }
+
+  async loadScene(sceneId) {
+    this.mode = 'transition';
+    await this.fadeOut();
+    this.sceneId = sceneId;
+    this.currentScene = SCENES[sceneId];
+    this.bgCache = null; // invalidate cache
+    const start = this.currentScene.paddyStart;
+    this.paddyX = start.x;
+    this.paddyY = start.y;
+    this.paddyTargetX = start.x;
+    this.paddyTargetY = start.y;
+    this.paddyWalking = false;
+    this.message = '';
+    this.messageTimer = 0;
+    this.ui.closePopup();
+    this.ui.usingItem = null;
+    await this.fadeIn();
+    this.mode = 'play';
+  }
+
+  fadeOut() {
+    return new Promise(resolve => {
+      this.transPhase = 'fadeout';
+      this.transAlpha = 0;
+      const step = () => {
+        this.transAlpha += 0.06;
+        if (this.transAlpha >= 1) { this.transAlpha = 1; resolve(); return; }
+        requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+  }
+
+  fadeIn() {
+    return new Promise(resolve => {
+      this.transPhase = 'fadein';
+      const step = () => {
+        this.transAlpha -= 0.06;
+        if (this.transAlpha <= 0) { this.transAlpha = 0; this.transPhase = 'none'; resolve(); return; }
+        requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+  }
+
+  _triggerWin() {
+    this.mode = 'win';
+    this.winTimer = 0;
+    // Spawn confetti
+    this.confetti = [];
+    for (let i = 0; i < 60; i++) {
+      this.confetti.push({
+        x: Math.random() * W,
+        y: Math.random() * H - H,
+        vx: (Math.random() - 0.5) * 30,
+        vy: 40 + Math.random() * 60,
+        vr: (Math.random() - 0.5) * 5,
+        rot: Math.random() * Math.PI * 2,
+        color: [PALETTE.emerald, PALETTE.gold, PALETTE.white, PALETTE.orange, '#ff88ff'][Math.floor(Math.random() * 5)],
+        w: 4 + Math.random() * 6,
+        h: 3 + Math.random() * 4,
+      });
+    }
+  }
+
+  startGame() {
+    this.state.reset();
+    this.inventory.clear();
+    this.bgCache = null;
+    this.cartOffset = 0;
+    this.cartPushTimer = 0;
+    this.floatDecorated = false;
+    this._cacheSessionQuestions();
+    this.loadScene('pub');
+  }
+
+  _cacheSessionQuestions() {
+    this.sessionQuestions = {};
+    this.sessionQuestionPtrs = {};
+    const scenes = ['pub', 'cathedral', 'steamtown', 'lackawanna', 'parade'];
+    for (const scene of scenes) {
+      const pool = QUESTION_BANK.filter(q => q.scene === scene && q.difficulty <= this.difficulty);
+      const shuffled = [...pool].sort(() => Math.random() - 0.5);
+      this.sessionQuestions[scene] = shuffled.slice(0, 2);
+      this.sessionQuestionPtrs[scene] = 0;
+    }
+  }
+
+  render() {
+    const ctx = this.ctx;
+    ctx.clearRect(0, 0, W, H);
+
+    if (this.mode === 'title') {
+      this._renderTitle(ctx);
+      return;
+    }
+
+    if (this.mode === 'difficulty') {
+      this._renderDifficulty(ctx);
+      return;
+    }
+
+    if (this.mode === 'help') {
+      this._renderHelp(ctx);
+      return;
+    }
+
+    if (this.mode === 'win') {
+      this._renderWin(ctx);
+      return;
+    }
+
+    // Render scene background (cached)
+    if (this.currentScene) {
+      if (!this.bgCache) {
+        const off = document.createElement('canvas');
+        off.width = W; off.height = VIEWPORT_H;
+        this.currentScene.drawBg(off.getContext('2d'));
+        this.bgCache = off;
+      }
+      ctx.drawImage(this.bgCache, 0, 0);
+    }
+
+    // Render Lucky Coins (live, not cached)
+    this._renderCoins(ctx);
+
+    // Render pickup items live so they disappear when taken
+    this._renderPickupItems(ctx);
+
+    // Ambient animation (fire, steam, crowd wave)
+    this._renderAmbient(ctx);
+
+    // Exit signs (appear after scene item collected)
+    this._renderExitSigns(ctx);
+
+    // Render entities depth-sorted by Y (higher Y = in front)
+    if (this.currentScene) {
+      const entities = [
+        ...this.currentScene.npcs.map(npc => {
+          const facing = Math.abs(this.paddyX - npc.x) < 40 ? (this.paddyX < npc.x ? -1 : 1) : 1;
+          return {
+            y: npc.y,
+            draw: () => drawNPC(ctx, npc.x, npc.y, npc.type, this.paddyAnimFrame, facing)
+          };
+        }),
+        { y: this.paddyY, draw: () => drawPaddy(ctx, this.paddyX, this.paddyY, this.paddyDir, this.paddyAnimFrame, this.paddyCelebrate) }
+      ];
+      entities.sort((a, b) => a.y - b.y);
+      entities.forEach(e => e.draw());
+    } else {
+      drawPaddy(ctx, this.paddyX, this.paddyY, this.paddyDir, this.paddyAnimFrame, this.paddyCelebrate);
+    }
+
+    // Walk target indicator
+    if (this.walkTargetTimer > 0) {
+      const alpha = this.walkTargetTimer / 0.6;
+      const pulse = 1 + 0.4 * Math.sin(this.animTimer * 12);
+      ctx.strokeStyle = `rgba(0,255,100,${alpha * 0.8})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(this.walkTargetX, this.walkTargetY, 6 * pulse, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = `rgba(0,255,100,${alpha * 0.4})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(this.walkTargetX, this.walkTargetY, 10 * pulse, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Hover highlight (hotspot outline / NPC glow)
+    this._renderHoverHighlight(ctx);
+
+    // Scene name / hover name strip
+    if (this.currentScene) {
+      ctx.fillStyle = 'rgba(0,20,0,0.75)';
+      ctx.fillRect(0, 0, W, 13);
+      const hoverLabel = this._getHoverLabel();
+      ctx.fillStyle = hoverLabel ? PALETTE.white : PALETTE.gold;
+      ctx.font = '7px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(hoverLabel || this.currentScene.name, W / 2, 9);
+      ctx.textAlign = 'left';
+    }
+
+    // Message overlay
+    if (this.messageTimer > 0 && this.message) {
+      this._renderMessage(ctx);
+    }
+
+    // UI (inventory + popup + HUD)
+    this.ui.render(ctx);
+
+    // Dialogue overlay
+    if (this.mode === 'dialogue') {
+      this.dialogue.render(ctx);
+    }
+
+    // Transition overlay
+    if (this.transAlpha > 0) {
+      ctx.fillStyle = `rgba(0,0,0,${this.transAlpha})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+  }
+
+  _renderExitSigns(ctx) {
+    if (!this.sceneId) return;
+    // Each entry: flag that must be set, sign position (just right of exit hotspot), label
+    const defs = {
+      pub:        { flag: 'has_shamrock',  x: 22, y: 133, label: "St. Peter's" },
+      cathedral:  { flag: 'has_banner',    x: 52, y: 158, label: 'Steamtown'   },
+      steamtown:  { flag: 'has_horseshoe', x: 82, y: 140, label: 'Elec. City'  },
+      lackawanna: { flag: 'has_bulb',      x: 42, y: 155, label: 'Parade!'     },
+    };
+    const def = defs[this.sceneId];
+    if (!def || !this.state.getFlag(def.flag)) return;
+
+    const t = this.animTimer;
+    const pulse = (Math.sin(t * 2.8) + 1) / 2; // 0..1
+
+    const fullLabel = '\u2190 ' + def.label;
+    ctx.font = 'bold 7px sans-serif';
+    const tw = ctx.measureText(fullLabel).width;
+    const sw = tw + 10, sh = 14;
+    const sx = def.x, sy = def.y;
+
+    // Soft glow halo
+    const glow = ctx.createRadialGradient(sx + sw / 2, sy + sh / 2, 2, sx + sw / 2, sy + sh / 2, sw * 0.75);
+    glow.addColorStop(0, `rgba(0,255,100,${0.10 + pulse * 0.14})`);
+    glow.addColorStop(1, 'rgba(0,255,100,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(sx + sw / 2, sy + sh / 2, sw * 0.75, 0, Math.PI * 2); ctx.fill();
+
+    // Sign board
+    const borderAlpha = 0.6 + pulse * 0.4;
+    roundRect(ctx, sx, sy, sw, sh, 3,
+      'rgba(0,22,8,0.93)',
+      `rgba(80,255,130,${borderAlpha})`
+    );
+
+    // Arrow + label text
+    ctx.fillStyle = `rgba(255,215,0,${0.85 + pulse * 0.15})`;
+    ctx.font = 'bold 7px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(fullLabel, sx + 4, sy + sh - 4);
+    ctx.textAlign = 'left';
+  }
+
+  _renderMessage(ctx) {
+    const msg = this.message;
+    const bw = 280, bx = (W - bw) / 2;
+    const by = 12;
+    const bh = 40;
+    roundRect(ctx, bx, by, bw, bh, 5, PALETTE.popupBg, PALETTE.popupBorder);
+    ctx.fillStyle = PALETTE.white;
+    ctx.font = '8px sans-serif';
+    ctx.textAlign = 'center';
+    wrapText(ctx, msg, bx + bw / 2, by + 12, bw - 16, 11);
+    ctx.textAlign = 'left';
+  }
+
+  _renderTitle(ctx) {
+    // Dark green background
+    ctx.fillStyle = '#020e02';
+    ctx.fillRect(0, 0, W, H);
+
+    // Animated shamrocks
+    const t = this.animTimer;
+    for (let i = 0; i < 8; i++) {
+      const sx = (i * 45 + t * 20) % (W + 20) - 10;
+      const sy = 50 + Math.sin(t + i) * 20;
+      drawShamrock(ctx, sx, sy, 8 + Math.sin(t * 0.7 + i) * 3, PALETTE.emerald);
+    }
+
+    // Title box
+    roundRect(ctx, 20, 30, 280, 60, 8, 'rgba(0,40,0,0.9)', PALETTE.popupBorder);
+    ctx.fillStyle = PALETTE.gold;
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText("PADDY'S PARADE DAY", W / 2, 52);
+    ctx.fillStyle = PALETTE.white;
+    ctx.font = 'bold 10px sans-serif';
+    ctx.fillText('ADVENTURE', W / 2, 66);
+    ctx.fillStyle = PALETTE.emerald;
+    ctx.font = '7px sans-serif';
+    ctx.fillText('A Scranton St. Patrick\'s Parade Game', W / 2, 80);
+
+    // Draw Paddy on title
+    drawPaddy(ctx, W / 2, 145, 1, Math.floor(t * 5), false);
+
+    // Subtitle
+    roundRect(ctx, 50, 155, 220, 18, 4, 'rgba(0,30,0,0.8)', PALETTE.popupBorder);
+    ctx.fillStyle = PALETTE.white;
+    ctx.font = '8px sans-serif';
+    ctx.fillText('Tap anywhere to begin!', W / 2, 167);
+
+    // How to Play button
+    roundRect(ctx, 90, 174, 140, 16, 4, 'rgba(0,40,0,0.85)', PALETTE.grassGreen);
+    ctx.fillStyle = PALETTE.grassGreen;
+    ctx.font = '7px sans-serif';
+    ctx.fillText('☘ How to Play', W / 2, 185);
+
+    // Credits
+    ctx.fillStyle = PALETTE.grassGreen;
+    ctx.font = '6px sans-serif';
+    ctx.fillText('stpatparade.com  •  Erin Go Bragh!', W / 2, 200);
+
+    ctx.textAlign = 'left';
+  }
+
+  _renderDifficulty(ctx) {
+    ctx.fillStyle = '#020e02';
+    ctx.fillRect(0, 0, W, H);
+    // Animated shamrocks
+    const t = this.animTimer;
+    for (let i = 0; i < 8; i++) {
+      const sx = (i * 45 + t * 20) % (W + 20) - 10;
+      const sy = 50 + Math.sin(t + i) * 20;
+      drawShamrock(ctx, sx, sy, 8 + Math.sin(t * 0.7 + i) * 3, '#003a1a');
+    }
+    // Header
+    roundRect(ctx, 20, 10, 280, 22, 6, 'rgba(0,40,0,0.92)', PALETTE.popupBorder);
+    ctx.fillStyle = PALETTE.gold;
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('☘  CHOOSE DIFFICULTY  ☘', W / 2, 25);
+    ctx.fillStyle = PALETTE.white;
+    ctx.font = '7px sans-serif';
+    ctx.fillText('More difficulty = more points per quiz answer!', W / 2, 40);
+
+    const buttons = [
+      { label: '🍀  EASY',   sub: 'Beginner-friendly questions • Score ×1',   y: 90,  diff: 1, fill: '#004422' },
+      { label: '☘  MEDIUM', sub: 'Some Irish knowledge helps • Score ×1.5',  y: 128, diff: 2, fill: '#003322' },
+      { label: '🎩  HARD',   sub: 'True Irish-Scranton historian! • Score ×2', y: 166, diff: 3, fill: '#220044' },
+    ];
+    for (const btn of buttons) {
+      roundRect(ctx, 30, btn.y, 260, 30, 6, btn.fill, PALETTE.popupBorder);
+      ctx.fillStyle = PALETTE.gold;
+      ctx.font = 'bold 9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(btn.label, W / 2, btn.y + 13);
+      ctx.fillStyle = PALETTE.lightGrey;
+      ctx.font = '7px sans-serif';
+      ctx.fillText(btn.sub, W / 2, btn.y + 24);
+    }
+
+    // Back button
+    roundRect(ctx, 15, H - 30, 55, 18, 4, PALETTE.darkGreen, PALETTE.popupBorder);
+    ctx.fillStyle = PALETTE.white;
+    ctx.font = 'bold 8px sans-serif';
+    ctx.fillText('← Back', 42, H - 18);
+    ctx.textAlign = 'left';
+  }
+
+  _renderHelp(ctx) {
+    // Background
+    ctx.fillStyle = '#020e02';
+    ctx.fillRect(0, 0, W, H);
+    // Animated shamrocks
+    const t = this.animTimer;
+    for (let i = 0; i < 6; i++) {
+      const sx = (i * 60 + t * 15) % (W + 20) - 10;
+      const sy = 30 + Math.sin(t * 0.8 + i) * 12;
+      drawShamrock(ctx, sx, sy, 6 + Math.sin(t * 0.5 + i) * 2, '#003a1a');
+    }
+    // Header
+    roundRect(ctx, 10, 8, 300, 22, 6, 'rgba(0,40,0,0.9)', PALETTE.popupBorder);
+    ctx.fillStyle = PALETTE.gold;
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('☘  HOW TO PLAY  ☘', W / 2, 22);
+
+    if (this.helpPage === 0) {
+      // Page 1: Controls
+      const controls = [
+        ['👤', 'Tap a person', 'Talk to them'],
+        ['🔍', 'Tap a thing',  'Look / Take / Go'],
+        ['🚶', 'Tap the floor', 'Paddy walks there'],
+        ['🎒', 'Tap item icon', 'Use it on a hotspot'],
+        ['🪙', 'Tap a gold coin', 'Collect for +5 pts!'],
+      ];
+      controls.forEach(([icon, label, desc], i) => {
+        const iy = 48 + i * 28;
+        roundRect(ctx, 15, iy, 290, 24, 4, 'rgba(0,25,0,0.7)', '#224422');
+        ctx.fillStyle = PALETTE.white;
+        ctx.font = 'bold 8px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(icon + '  ' + label, 24, iy + 10);
+        ctx.fillStyle = PALETTE.grassGreen;
+        ctx.font = '7px sans-serif';
+        ctx.fillText('→ ' + desc, 24, iy + 20);
+      });
+    } else {
+      // Page 2: Quest & items
+      roundRect(ctx, 15, 36, 290, 18, 4, 'rgba(0,30,0,0.8)', PALETTE.popupBorder);
+      ctx.fillStyle = PALETTE.gold;
+      ctx.font = 'bold 8px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Your quest: Find 4 items before noon!', W / 2, 48);
+      const items = [
+        { icon: 'shamrock_bouquet', name: 'Shamrock Bouquet',  where: "Paddy's Pub" },
+        { icon: 'parade_banner',    name: 'Parade Banner',     where: "St. Peter's Cathedral" },
+        { icon: 'horseshoe',        name: 'Lucky Horseshoe',   where: 'Steamtown NHS' },
+        { icon: 'green_bulb',       name: 'Green Light Bulb',  where: 'Lackawanna Ave' },
+      ];
+      items.forEach(({ icon, name, where }, i) => {
+        const iy = 62 + i * 28;
+        roundRect(ctx, 15, iy, 290, 24, 4, 'rgba(0,25,0,0.7)', '#224422');
+        drawItemIcon(ctx, 30, iy + 12, icon);
+        ctx.fillStyle = PALETTE.white;
+        ctx.font = 'bold 7px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(name, 46, iy + 9);
+        ctx.fillStyle = PALETTE.grassGreen;
+        ctx.font = '6px sans-serif';
+        ctx.fillText('📍 ' + where, 46, iy + 19);
+      });
+      // Bonus tips
+      roundRect(ctx, 15, 178, 290, 14, 3, 'rgba(0,30,0,0.8)', PALETTE.gold);
+      ctx.fillStyle = PALETTE.gold;
+      ctx.font = '7px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('🪙 5 hidden Lucky Coins (+5 pts each)   📚 10 quiz questions (+10 pts each)', W / 2, 188);
+    }
+
+    // Navigation buttons
+    ctx.textAlign = 'center';
+    roundRect(ctx, 15, H - 30, 55, 18, 4, PALETTE.darkGreen, PALETTE.popupBorder);
+    ctx.fillStyle = PALETTE.white; ctx.font = 'bold 8px sans-serif';
+    ctx.fillText(this.helpPage === 0 ? '✕ Close' : '← Back', 42, H - 18);
+
+    roundRect(ctx, W - 70, H - 30, 55, 18, 4, PALETTE.darkGreen, PALETTE.popupBorder);
+    ctx.fillStyle = PALETTE.white;
+    ctx.fillText(this.helpPage === 1 ? '✓ Done' : 'Next →', W - 42, H - 18);
+
+    ctx.fillStyle = PALETTE.grassGreen;
+    ctx.font = '6px sans-serif';
+    ctx.fillText(`Page ${this.helpPage + 1} / 2`, W / 2, H - 18);
+    ctx.textAlign = 'left';
+  }
+
+  _renderWin(ctx) {
+    // Draw parade background
+    if (!this.bgCache || this._lastBgScene !== 'parade') {
+      const off = document.createElement('canvas');
+      off.width = W; off.height = VIEWPORT_H;
+      drawBgParade(off.getContext('2d'));
+      this.bgCache = off;
+      this._lastBgScene = 'parade';
+    }
+    ctx.drawImage(this.bgCache, 0, 0);
+
+    // Confetti
+    for (const c of this.confetti) {
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      ctx.rotate(c.rot);
+      ctx.fillStyle = c.color;
+      ctx.fillRect(-c.w / 2, -c.h / 2, c.w, c.h);
+      ctx.restore();
+    }
+
+    // Shamrocks raining
+    for (let i = 0; i < 5; i++) {
+      drawShamrock(ctx, ((i * 80 + this.winTimer * 30) % (W + 20)) - 10,
+        ((this.winTimer * 40 + i * 55) % (VIEWPORT_H + 20)) - 10, 10, PALETTE.emerald);
+    }
+
+    // Win banner
+    roundRect(ctx, 10, 35, 300, 110, 8, 'rgba(0,30,0,0.95)', PALETTE.gold);
+    ctx.fillStyle = PALETTE.gold;
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('☘  THE PARADE HAS BEGUN!  ☘', W / 2, 56);
+    ctx.fillStyle = PALETTE.white;
+    ctx.font = '8px sans-serif';
+    ctx.fillText('Congratulations, Paddy!', W / 2, 72);
+    ctx.fillText('You saved the Scranton', W / 2, 84);
+    ctx.fillText("St. Patrick's Parade!", W / 2, 96);
+    ctx.fillStyle = PALETTE.emerald;
+    ctx.font = 'bold 10px sans-serif';
+    const diffLabel = ['', 'Easy', 'Medium', 'Hard'][this.difficulty] || '';
+    ctx.fillText(`Final Score: ${this.state.score} pts (${diffLabel})`, W / 2, 114);
+    ctx.fillStyle = PALETTE.gold;
+    ctx.font = '7px sans-serif';
+    ctx.fillText('ERIN GO BRAGH!', W / 2, 128);
+
+    // Inventory bar area — show collected items
+    ctx.fillStyle = '#0a2a0a';
+    ctx.fillRect(0, INVENTORY_Y, W, INVENTORY_H);
+    ctx.strokeStyle = PALETTE.gold; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, INVENTORY_Y); ctx.lineTo(W, INVENTORY_Y); ctx.stroke();
+    const slotW = W / 4;
+    for (let i = 0; i < ITEM_IDS.length; i++) {
+      drawItemIcon(ctx, i * slotW + slotW / 2, INVENTORY_Y + INVENTORY_H / 2, ITEM_IDS[i]);
+    }
+
+    // Footer
+    ctx.fillStyle = '#0a1a0a';
+    ctx.fillRect(0, 220, W, 20);
+    ctx.fillStyle = PALETTE.grassGreen;
+    ctx.font = '6px sans-serif';
+    ctx.fillText('Happy St. Patrick\'s Day from stpatparade.com  •  Tap to play again', W / 2, 231);
+
+    ctx.textAlign = 'left';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SECTION 10: BOOT
+// ═══════════════════════════════════════════════════════════════════
+
+window.onload = () => {
+  const canvas = document.getElementById('game');
+  // Scale canvas buffer to device pixel ratio so text/lines render at native sharpness
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  const game = new Game(canvas);
+  game.ctx.scale(dpr, dpr);  // all drawing uses logical 320×240 coords
+  game.start();
+};
+</script>
+</body>
+</html>

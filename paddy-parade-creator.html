@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paddy's Parade — Hotspot Visualizer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a1a0a; color: #c0e0c0; font-family: monospace; font-size: 13px; }
+  #top { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: #0d2a0d; border-bottom: 1px solid #225522; flex-wrap: wrap; }
+  #top h1 { color: #ffd700; font-size: 14px; }
+  select { background: #0a2a0a; color: #c0e0c0; border: 1px solid #336633; padding: 3px 6px; border-radius: 3px; }
+  #layout { display: flex; gap: 12px; padding: 10px; height: calc(100vh - 48px); overflow: hidden; }
+  #canvas-wrap { position: relative; flex-shrink: 0; }
+  canvas#vis { display: block; border: 1px solid #336633; cursor: crosshair; }
+  #tooltip { position: absolute; pointer-events: none; background: rgba(0,20,0,0.92); border: 1px solid #55ff55; color: #f0f0e8; padding: 4px 8px; border-radius: 4px; font-size: 11px; display: none; white-space: nowrap; z-index: 10; }
+  #sidebar { flex: 1; overflow-y: auto; min-width: 220px; }
+  #sidebar h2 { color: #ffd700; font-size: 12px; margin-bottom: 6px; }
+  .hs-entry { margin-bottom: 6px; padding: 5px 8px; border-radius: 4px; border-left: 3px solid #555; background: rgba(0,20,0,0.5); }
+  .hs-entry.overlap { border-left-color: #ff4444; background: rgba(40,0,0,0.5); }
+  .hs-id { font-weight: bold; }
+  .hs-rect { color: #88aa88; font-size: 11px; }
+  .hs-verbs { color: #aaddaa; font-size: 11px; }
+  .hs-overlap-warn { color: #ff8888; font-size: 11px; margin-top: 2px; }
+  #legend { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 11px; }
+  .leg { display: flex; align-items: center; gap: 4px; }
+  .leg-box { width: 12px; height: 12px; border: 2px solid; }
+  .npc-entry { border-left-color: #ffdd00 !important; }
+</style>
+</head>
+<body>
+<div id="top">
+  <h1>☘ Paddy's Parade — Hotspot Visualizer</h1>
+  <select id="sceneSelect">
+    <option value="pub">Paddy's Pub</option>
+    <option value="cathedral">St. Peter's Cathedral</option>
+    <option value="steamtown">Steamtown NHS</option>
+    <option value="lackawanna">Lackawanna Ave</option>
+    <option value="parade" selected>Parade</option>
+  </select>
+  <div id="legend">
+    <span>Legend:</span>
+    <div class="leg"><div class="leg-box" style="background:rgba(0,100,255,0.25);border-color:#4488ff"></div> Prop (look)</div>
+    <div class="leg"><div class="leg-box" style="background:rgba(0,200,50,0.25);border-color:#00cc44"></div> Pickup</div>
+    <div class="leg"><div class="leg-box" style="background:rgba(255,140,0,0.25);border-color:#ff8800"></div> Exit</div>
+    <div class="leg"><div class="leg-box" style="background:rgba(180,0,255,0.25);border-color:#aa44ff"></div> Interactive</div>
+    <div class="leg"><div class="leg-box" style="background:rgba(255,220,0,0.25);border-color:#ffdd00"></div> NPC</div>
+    <div class="leg"><div class="leg-box" style="background:rgba(255,0,0,0.15);border-color:#ff4444"></div> Overlap!</div>
+  </div>
+</div>
+<div id="layout">
+  <div id="canvas-wrap">
+    <canvas id="vis" width="640" height="390"></canvas>
+    <div id="tooltip"></div>
+  </div>
+  <div id="sidebar">
+    <h2>Hotspots in scene</h2>
+    <div id="hs-list"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ── Minimal shared constants ──────────────────────────────────────
+const W = 320, H = 240, VIEWPORT_H = 195;
+const SCALE = 2;
+const VW = W * SCALE, VH = VIEWPORT_H * SCALE;
+
+const PALETTE = {
+  bgGreen:'#0a1a0a', grassGreen:'#2d6a2d', emerald:'#00aa44', gold:'#ffd700',
+  white:'#f0f0e8', stone:'#c8a87a', wood:'#5a3010', sky:'#1a3a5c',
+  popupBg:'rgba(10,30,10,0.95)', popupBorder:'#55ff55', darkGreen:'#004422',
+  orange:'#ff8800', red:'#cc2200', grey:'#888888', lightGrey:'#cccccc',
+  brown:'#8b4513', black:'#111111', cream:'#fff8dc', blue:'#4488cc', purple:'#884488',
+};
+
+function makeRect(x, y, w, h) { return { x, y, w, h }; }
+function rectContains(r, px, py) { return px >= r.x && px <= r.x+r.w && py >= r.y && py <= r.y+r.h; }
+function roundRect(ctx, x, y, w, h, r, fill, stroke) {
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.stroke(); }
+}
+
+// ── Hotspot type classifier ───────────────────────────────────────
+function hotspotType(hs) {
+  if (hs.isExit) return 'exit';
+  if (hs.item) return 'pickup';
+  if (hs.verbs && hs.verbs.includes('use') && !hs.isExit) return 'interactive';
+  if (hs.verbs && hs.verbs.includes('talk')) return 'crowd';
+  return 'prop';
+}
+
+const TYPE_COLORS = {
+  prop:        { fill: 'rgba(0,100,255,0.18)',   stroke: '#4488ff' },
+  pickup:      { fill: 'rgba(0,200,50,0.20)',    stroke: '#00cc44' },
+  exit:        { fill: 'rgba(255,140,0,0.18)',   stroke: '#ff8800' },
+  interactive: { fill: 'rgba(180,0,255,0.18)',   stroke: '#aa44ff' },
+  crowd:       { fill: 'rgba(255,120,200,0.18)', stroke: '#ff88cc' },
+};
+
+// ── Scene definitions (copied/adapted from game) ─────────────────
+const SCENES = {
+  pub: {
+    name: "Paddy's Pub",
+    npcs: [{ id: 'siobhan', x: 240, y: 155 }],
+    hotspots: [
+      { id: 'fireplace',   name: 'Stone Fireplace',  rect: makeRect(10,50,70,80),   verbs: ['look'] },
+      { id: 'shamrock',    name: 'Shamrock Bouquet', rect: makeRect(148,110,50,30), verbs: ['look','take'], item: 'shamrock_bouquet' },
+      { id: 'noticeboard', name: 'Notice Board',     rect: makeRect(278,28,40,58),  verbs: ['look'] },
+      { id: 'exit_door',   name: 'Pub Door',         rect: makeRect(0,100,20,80),   verbs: ['look','use'], isExit: true },
+    ],
+  },
+  cathedral: {
+    name: "St. Peter's Cathedral",
+    npcs: [{ id: 'father_callahan', x: 230, y: 155 }],
+    hotspots: [
+      { id: 'cathedral_door', name: 'Cathedral Door', rect: makeRect(125,60,70,95), verbs: ['look'] },
+      { id: 'stained_glass',  name: 'Rose Window',    rect: makeRect(138,38,44,44), verbs: ['look'] },
+      { id: 'collection_box', name: 'Collection Box', rect: makeRect(90,148,30,15), verbs: ['look'] },
+      { id: 'banner',         name: 'Parade Banner',  rect: makeRect(285,75,30,65), verbs: ['look','take'], item: 'parade_banner' },
+      { id: 'exit_steamtown', name: 'Stone Steps',    rect: makeRect(0,145,50,50),  verbs: ['look','use'], isExit: true },
+    ],
+  },
+  steamtown: {
+    name: "Steamtown National Historic Site",
+    npcs: [{ id: 'seamus', x: 220, y: 155 }],
+    hotspots: [
+      { id: 'locomotive', name: 'Steam Locomotive',      rect: makeRect(90,90,110,60),  verbs: ['look'] },
+      { id: 'coal_cart',  name: 'Coal Cart',             rect: makeRect(240,115,60,40), verbs: ['look','push'] },
+      { id: 'spike_box',  name: 'Railroad Spike Display',rect: makeRect(5,92,65,42),    verbs: ['look'] },
+      { id: 'horseshoe',  name: 'Lucky Horseshoe',       rect: makeRect(288,78,28,25),  verbs: ['look','take'], item: 'horseshoe' },
+      { id: 'exit_lacka', name: 'Depot Exit',            rect: makeRect(0,100,80,95),   verbs: ['look','use'], isExit: true },
+    ],
+  },
+  lackawanna: {
+    name: "Lackawanna Ave — Electric City",
+    npcs: [{ id: 'maggie', x: 65, y: 148 }],
+    hotspots: [
+      { id: 'elec_sign',  name: 'Electric City Sign',   rect: makeRect(140,12,44,135), verbs: ['look'] },
+      { id: 'storefront', name: 'Storefront Window',    rect: makeRect(85,100,50,50),  verbs: ['look'] },
+      { id: 'bulb',       name: 'Green Light Bulb',     rect: makeRect(257,128,26,25), verbs: ['look','take'], item: 'green_bulb' },
+      { id: 'lamppost',   name: 'Lamppost with Flags',  rect: makeRect(15,60,25,90),   verbs: ['look'] },
+      { id: 'exit_parade',name: 'Down Lackawanna Ave',  rect: makeRect(0,140,40,55),   verbs: ['look','use'], isExit: true },
+    ],
+  },
+  parade: {
+    name: "Mulberry & Wyoming — Parade Start!",
+    npcs: [{ id: 'marshal', x: 225, y: 145 }],
+    hotspots: [
+      { id: 'float',       name: 'Parade Float',    rect: makeRect(130,100,110,50), verbs: ['look','use'] },
+      { id: 'crowd',       name: 'The Crowd',       rect: makeRect(0,60,95,55),     verbs: ['look','talk'] },
+      { id: 'mulberry_st', name: 'Mulberry St Sign',rect: makeRect(18,76,64,18),    verbs: ['look'] },
+      { id: 'wyoming_ave', name: 'Wyoming Ave Sign', rect: makeRect(252,76,72,18),  verbs: ['look'] },
+    ],
+  },
+};
+
+// ── Overlap detection ─────────────────────────────────────────────
+function rectsOverlap(a, b) {
+  return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+}
+function findOverlaps(hotspots, npcs) {
+  const all = [
+    ...hotspots.map(hs => ({ id: hs.id, rect: hs.rect, isNpc: false })),
+    ...npcs.map(npc => ({ id: 'NPC:'+npc.id, rect: makeRect(npc.x-14, npc.y-55, 28, 56), isNpc: true })),
+  ];
+  const pairs = [];
+  for (let i = 0; i < all.length; i++) {
+    for (let j = i+1; j < all.length; j++) {
+      if (rectsOverlap(all[i].rect, all[j].rect)) {
+        pairs.push([all[i].id, all[j].id]);
+      }
+    }
+  }
+  return pairs;
+}
+
+// ── Background drawing (minimal placeholder fills) ────────────────
+const BG_COLORS = {
+  pub:        '#3a2010',
+  cathedral:  '#3a6a9a',
+  steamtown:  '#5a7a90',
+  lackawanna: '#4a4a6a',
+  parade:     '#55aadd',
+};
+
+// ── Main visualizer ───────────────────────────────────────────────
+const canvas = document.getElementById('vis');
+const ctx = canvas.getContext('2d');
+canvas.width = VW; canvas.height = VH;
+const tooltip = document.getElementById('tooltip');
+const hsList = document.getElementById('hs-list');
+const sceneSelect = document.getElementById('sceneSelect');
+
+let currentScene = null;
+let hoveredId = null;
+
+function drawScene(sceneId) {
+  currentScene = SCENES[sceneId];
+  const sc = currentScene;
+
+  // Scale 2x
+  ctx.save();
+  ctx.scale(SCALE, SCALE);
+
+  // Background
+  ctx.fillStyle = BG_COLORS[sceneId] || '#333';
+  ctx.fillRect(0, 0, W, VIEWPORT_H);
+
+  // Grid (every 10px)
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 0.5;
+  for (let gx = 0; gx < W; gx += 10) { ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,VIEWPORT_H); ctx.stroke(); }
+  for (let gy = 0; gy < VIEWPORT_H; gy += 10) { ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(W,gy); ctx.stroke(); }
+
+  const overlaps = findOverlaps(sc.hotspots, sc.npcs);
+  const overlapIds = new Set(overlaps.flat());
+
+  // Draw hotspot rects
+  for (const hs of sc.hotspots) {
+    const type = hotspotType(hs);
+    const colors = TYPE_COLORS[type] || TYPE_COLORS.prop;
+    const isHover = hoveredId === hs.id;
+    const isOverlap = overlapIds.has(hs.id);
+
+    if (isOverlap) {
+      ctx.fillStyle = 'rgba(255,0,0,0.12)';
+      ctx.fillRect(hs.rect.x, hs.rect.y, hs.rect.w, hs.rect.h);
+      ctx.strokeStyle = '#ff4444';
+      ctx.lineWidth = isHover ? 2 : 1.5;
+      ctx.strokeRect(hs.rect.x+0.5, hs.rect.y+0.5, hs.rect.w-1, hs.rect.h-1);
+    } else {
+      ctx.fillStyle = isHover ? colors.fill.replace(/[\d.]+\)$/, '0.35)') : colors.fill;
+      ctx.fillRect(hs.rect.x, hs.rect.y, hs.rect.w, hs.rect.h);
+      ctx.strokeStyle = colors.stroke;
+      ctx.lineWidth = isHover ? 2 : 1;
+      ctx.strokeRect(hs.rect.x+0.5, hs.rect.y+0.5, hs.rect.w-1, hs.rect.h-1);
+    }
+
+    // Label
+    ctx.fillStyle = isOverlap ? '#ff8888' : '#fff';
+    ctx.font = '5px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(hs.id, hs.rect.x+2, hs.rect.y+7);
+    ctx.fillStyle = '#aaa';
+    ctx.font = '4px sans-serif';
+    ctx.fillText(`${hs.rect.x},${hs.rect.y}  ${hs.rect.w}×${hs.rect.h}`, hs.rect.x+2, hs.rect.y+13);
+    ctx.textAlign = 'left';
+  }
+
+  // Draw NPC hit rects
+  for (const npc of sc.npcs) {
+    const nr = makeRect(npc.x-14, npc.y-55, 28, 56);
+    const isHover = hoveredId === 'NPC:'+npc.id;
+    const isOverlap = overlapIds.has('NPC:'+npc.id);
+    ctx.fillStyle = isOverlap ? 'rgba(255,0,0,0.12)' : 'rgba(255,220,0,0.15)';
+    ctx.fillRect(nr.x, nr.y, nr.w, nr.h);
+    ctx.strokeStyle = isOverlap ? '#ff4444' : '#ffdd00';
+    ctx.lineWidth = isHover ? 2 : 1;
+    ctx.setLineDash([3,2]);
+    ctx.strokeRect(nr.x+0.5, nr.y+0.5, nr.w-1, nr.h-1);
+    ctx.setLineDash([]);
+    ctx.fillStyle = isOverlap ? '#ff8888' : '#ffdd00';
+    ctx.font = '5px sans-serif';
+    ctx.fillText('NPC:'+npc.id, nr.x+2, nr.y+7);
+  }
+
+  // Overlap warning labels
+  for (const [a,b] of overlaps) {
+    const aHs = sc.hotspots.find(h => h.id === a) || sc.npcs.find(n => 'NPC:'+n.id === a);
+    const bHs = sc.hotspots.find(h => h.id === b) || sc.npcs.find(n => 'NPC:'+n.id === b);
+    if (!aHs || !bHs) continue;
+    const ar = aHs.rect || makeRect(aHs.x-14, aHs.y-55, 28, 56);
+    const mx = (ar.x + ar.w/2);
+    const my = (ar.y + ar.h/2);
+    ctx.fillStyle = '#ff4444';
+    ctx.font = 'bold 5px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('⚠ OVERLAP', mx, my);
+    ctx.textAlign = 'left';
+  }
+
+  ctx.restore();
+
+  // Update sidebar
+  updateSidebar(sc, overlaps, overlapIds);
+}
+
+function updateSidebar(sc, overlaps, overlapIds) {
+  hsList.innerHTML = '';
+
+  const makeEntry = (id, name, rect, extra, isNpc) => {
+    const div = document.createElement('div');
+    div.className = 'hs-entry' + (overlapIds.has(id) ? ' overlap' : '') + (isNpc ? ' npc-entry' : '');
+    div.style.borderLeftColor = isNpc ? '#ffdd00' : (overlapIds.has(id) ? '#ff4444' : getTypeColor(extra));
+    div.innerHTML = `
+      <div class="hs-id">${id}${isNpc ? ' (NPC)' : ''}</div>
+      <div class="hs-rect">rect: [${rect.x}, ${rect.y}, ${rect.w}, ${rect.h}]</div>
+      ${extra.verbs ? `<div class="hs-verbs">verbs: ${extra.verbs.join(', ')}</div>` : ''}
+      ${extra.item ? `<div class="hs-verbs">item: ${extra.item}</div>` : ''}
+      ${extra.isExit ? `<div class="hs-verbs">→ exit</div>` : ''}
+      ${overlapIds.has(id) ? `<div class="hs-overlap-warn">⚠ overlaps: ${overlaps.filter(p=>p.includes(id)).map(p=>p.find(x=>x!==id)).join(', ')}</div>` : ''}
+    `;
+    div.addEventListener('mouseenter', () => { hoveredId = id; redraw(); });
+    div.addEventListener('mouseleave', () => { hoveredId = null; redraw(); });
+    hsList.appendChild(div);
+  };
+
+  for (const hs of sc.hotspots) {
+    makeEntry(hs.id, hs.name, hs.rect, hs, false);
+  }
+  for (const npc of sc.npcs) {
+    const nr = makeRect(npc.x-14, npc.y-55, 28, 56);
+    makeEntry('NPC:'+npc.id, npc.id, nr, {}, true);
+  }
+
+  if (overlaps.length > 0) {
+    const warn = document.createElement('div');
+    warn.style.cssText = 'color:#ff8888;margin-top:8px;padding:5px;background:rgba(40,0,0,0.5);border-radius:4px;font-size:11px;';
+    warn.innerHTML = `<b>⚠ ${overlaps.length} overlap(s) detected:</b><br>` +
+      overlaps.map(([a,b]) => `&nbsp;${a} ↔ ${b}`).join('<br>');
+    hsList.appendChild(warn);
+  }
+}
+
+function getTypeColor(hs) {
+  const t = hotspotType(hs);
+  return (TYPE_COLORS[t] || TYPE_COLORS.prop).stroke;
+}
+
+function redraw() {
+  drawScene(sceneSelect.value);
+}
+
+// ── Mouse hover on canvas ─────────────────────────────────────────
+canvas.addEventListener('mousemove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) / SCALE;
+  const my = (e.clientY - rect.top) / SCALE;
+
+  const sc = currentScene;
+  if (!sc) return;
+
+  let found = null;
+  for (const hs of sc.hotspots) {
+    if (rectContains(hs.rect, mx, my)) { found = { id: hs.id, rect: hs.rect }; break; }
+  }
+  if (!found) {
+    for (const npc of sc.npcs) {
+      const nr = makeRect(npc.x-14, npc.y-55, 28, 56);
+      if (rectContains(nr, mx, my)) { found = { id: 'NPC:'+npc.id, rect: nr }; break; }
+    }
+  }
+
+  if (found) {
+    hoveredId = found.id;
+    tooltip.style.display = 'block';
+    tooltip.style.left = (e.clientX - rect.left + 12) + 'px';
+    tooltip.style.top  = (e.clientY - rect.top  + 8) + 'px';
+    const r = found.rect;
+    tooltip.textContent = `${found.id}  [x:${r.x}, y:${r.y}, w:${r.w}, h:${r.h}]`;
+  } else {
+    hoveredId = null;
+    tooltip.style.display = 'none';
+  }
+  redraw();
+});
+
+canvas.addEventListener('mouseleave', () => {
+  hoveredId = null;
+  tooltip.style.display = 'none';
+  redraw();
+});
+
+sceneSelect.addEventListener('change', redraw);
+
+// Initial render
+redraw();
+</script>
+</body>
+</html>

@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paddy's Parade Day — Developer Reference</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0a1a0a;
+    color: #d0e8d0;
+    line-height: 1.6;
+    font-size: 15px;
+  }
+  a { color: #44ff88; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* Layout */
+  .layout { display: flex; min-height: 100vh; }
+  nav {
+    width: 220px; min-width: 220px;
+    background: #050f05;
+    border-right: 1px solid #224422;
+    padding: 24px 0;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  }
+  nav h2 { color: #ffd700; font-size: 13px; padding: 0 16px 8px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #224422; margin-bottom: 8px; }
+  nav a { display: block; padding: 6px 16px; color: #88cc88; font-size: 13px; border-left: 3px solid transparent; }
+  nav a:hover, nav a.active { color: #44ff88; border-left-color: #44ff88; background: rgba(0,255,100,0.05); text-decoration: none; }
+  main { flex: 1; max-width: 900px; padding: 40px 48px; }
+
+  /* Typography */
+  h1 { color: #ffd700; font-size: 28px; margin-bottom: 6px; }
+  h2 { color: #ffd700; font-size: 20px; margin: 48px 0 12px; padding-bottom: 6px; border-bottom: 1px solid #224422; }
+  h3 { color: #44ff88; font-size: 16px; margin: 24px 0 8px; }
+  h4 { color: #88cc88; font-size: 14px; margin: 16px 0 6px; }
+  p { margin-bottom: 12px; }
+  ul, ol { margin: 8px 0 16px 24px; }
+  li { margin-bottom: 4px; }
+  strong { color: #ffd700; }
+  em { color: #aaddaa; font-style: normal; }
+
+  /* Code */
+  code {
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 13px;
+    background: #0d200d;
+    color: #88ff88;
+    border: 1px solid #224422;
+    border-radius: 3px;
+    padding: 1px 5px;
+  }
+  pre {
+    background: #0d200d;
+    border: 1px solid #224422;
+    border-radius: 6px;
+    padding: 16px 20px;
+    overflow-x: auto;
+    margin: 12px 0 20px;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  pre code { background: none; border: none; padding: 0; color: #88ff88; }
+  .kw  { color: #ff88aa; }
+  .fn  { color: #88ddff; }
+  .str { color: #ffcc66; }
+  .cm  { color: #557755; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 24px; font-size: 14px; }
+  th { background: #0d200d; color: #ffd700; text-align: left; padding: 8px 12px; border: 1px solid #224422; }
+  td { padding: 7px 12px; border: 1px solid #1a3a1a; }
+  tr:nth-child(even) td { background: rgba(0,50,0,0.2); }
+
+  /* Callouts */
+  .note, .tip, .warn {
+    border-left: 3px solid;
+    padding: 10px 16px;
+    margin: 16px 0;
+    border-radius: 0 4px 4px 0;
+  }
+  .note { border-color: #44aaff; background: rgba(0,50,100,0.15); }
+  .tip  { border-color: #44ff88; background: rgba(0,80,30,0.2); }
+  .warn { border-color: #ffaa22; background: rgba(80,50,0,0.2); }
+
+  /* Color swatches */
+  .palette { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0 24px; }
+  .swatch { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .swatch-box { width: 48px; height: 48px; border-radius: 6px; border: 1px solid #224422; }
+  .swatch-name { font-size: 11px; color: #88cc88; text-align: center; }
+  .swatch-hex  { font-size: 11px; color: #556655; font-family: monospace; }
+
+  /* Header hero */
+  .hero {
+    background: linear-gradient(135deg, #002a10 0%, #004a20 50%, #002a10 100%);
+    border: 1px solid #224422;
+    border-radius: 8px;
+    padding: 24px 32px;
+    margin-bottom: 32px;
+  }
+  .hero .subtitle { color: #88cc88; font-size: 14px; margin-top: 4px; }
+  .hero .badges { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge {
+    background: rgba(0,80,30,0.5); border: 1px solid #224422;
+    border-radius: 20px; padding: 3px 12px; font-size: 12px; color: #88cc88;
+  }
+
+  /* Section anchors */
+  h2[id], h3[id] { scroll-margin-top: 24px; }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav>
+  <h2>☘ Docs</h2>
+  <a href="#overview">Overview</a>
+  <a href="#how-to-play">How to Play</a>
+  <a href="#file-structure">File Structure</a>
+  <a href="#scene-system">Scene System</a>
+  <a href="#dialogue-system">Dialogue System</a>
+  <a href="#state-flags">State Flags</a>
+  <a href="#lucky-coins">Lucky Coins</a>
+  <a href="#adding-content">Adding Content</a>
+  <a href="#palette">Palette Reference</a>
+</nav>
+
+<main>
+
+  <div class="hero">
+    <h1>☘ Paddy's Parade Day</h1>
+    <div class="subtitle">Developer Reference — Scranton St. Patrick's Parade Adventure</div>
+    <div class="badges">
+      <span class="badge">Pure Canvas 2D</span>
+      <span class="badge">No dependencies</span>
+      <span class="badge">Single HTML file</span>
+      <span class="badge">Mobile-friendly</span>
+      <span class="badge">320×240 virtual resolution</span>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2 id="overview">1. Overview</h2>
+
+  <p><strong>Paddy's Parade Day Adventure</strong> is a point-and-click adventure game built entirely in a single HTML file using the HTML5 Canvas 2D API. No external libraries, no build tools, no image assets — all graphics are drawn procedurally at runtime.</p>
+
+  <h3>Tech Stack</h3>
+  <ul>
+    <li><strong>Rendering:</strong> HTML5 Canvas 2D (320×240 virtual pixels, scaled to viewport)</li>
+    <li><strong>Input:</strong> Unified Pointer Events API (works on mouse, touch, and stylus)</li>
+    <li><strong>Animation:</strong> <code>requestAnimationFrame</code> game loop</li>
+    <li><strong>State:</strong> Plain JavaScript classes (no framework)</li>
+    <li><strong>Async flow:</strong> <code>async/await</code> with manual Promise resolution for dialogue</li>
+  </ul>
+
+  <h3>Intended Audience</h3>
+  <p>This doc is for developers who want to extend the game — adding scenes, NPCs, quiz questions, or lucky coins. It assumes basic JavaScript knowledge but does <em>not</em> require any game engine experience.</p>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2 id="how-to-play">2. How to Play (Player-Facing)</h2>
+
+  <h3>The Story</h3>
+  <p>It's St. Patrick's Day morning in Scranton, PA. Bartender Siobhan O'Malley tells Paddy the Leprechaun that the St. Patrick's Parade is in danger — four essential items are missing! Paddy must explore five Scranton landmarks, answer history quiz questions to earn the items, and deliver them all to Grand Marshal O'Brien before noon.</p>
+
+  <h3>Controls</h3>
+  <table>
+    <tr><th>Action</th><th>What happens</th></tr>
+    <tr><td>Tap a person (NPC)</td><td>Paddy walks over and initiates dialogue</td></tr>
+    <tr><td>Tap a highlighted object</td><td>Verb popup appears (Look / Take / Go / etc.)</td></tr>
+    <tr><td>Tap empty floor</td><td>Paddy walks to that location</td></tr>
+    <tr><td>Tap an inventory icon</td><td>Selects the item; then tap a hotspot to USE it</td></tr>
+    <tr><td>Tap a gold coin</td><td>Collects the Lucky Coin (+5 pts, shows fun fact)</td></tr>
+  </table>
+
+  <h3>Items to Collect</h3>
+  <table>
+    <tr><th>Item</th><th>Location</th><th>Prerequisite</th></tr>
+    <tr><td>Shamrock Bouquet</td><td>Paddy's Pub (table)</td><td>Talk to Siobhan, complete pub quizzes</td></tr>
+    <tr><td>Parade Banner</td><td>St. Peter's Cathedral (wall)</td><td>Talk to Father Callahan, complete cathedral quizzes</td></tr>
+    <tr><td>Lucky Horseshoe</td><td>Steamtown (fence)</td><td>Talk to Old Seamus, complete steamtown quizzes</td></tr>
+    <tr><td>Green Light Bulb</td><td>Lackawanna Ave (sidewalk)</td><td>Talk to Maggie, complete Lackawanna quizzes</td></tr>
+  </table>
+
+  <h3>Scoring</h3>
+  <ul>
+    <li>+10 points per correct quiz answer (10 quiz questions total = 80 max quiz points)</li>
+    <li>+5 points per Lucky Coin collected (5 coins total = 25 max coin points)</li>
+    <li><strong>Maximum score: 105 points</strong></li>
+    <li>Wrong quiz answers can be retried (no point deduction)</li>
+  </ul>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2 id="file-structure">3. File Structure</h2>
+
+  <p>The entire game is in <code>paddy-parade.html</code>. The JavaScript is divided into 10 clearly labeled sections:</p>
+
+  <table>
+    <tr><th>Section</th><th>Purpose</th></tr>
+    <tr><td>1 — Constants &amp; Palette</td><td>Canvas dimensions, color palette, <code>LUCKY_COINS</code> array</td></tr>
+    <tr><td>2 — Game State</td><td><code>GameState</code> class: flags, score, reset</td></tr>
+    <tr><td>3 — Input</td><td><code>Input</code> class: unified pointer events, tap/peek API</td></tr>
+    <tr><td>4 — Sprite Helpers</td><td><code>drawPaddy</code>, <code>drawNPC</code>, <code>drawShamrock</code>, <code>drawItemIcon</code>, <code>roundRect</code>, <code>wrapText</code></td></tr>
+    <tr><td>5 — Scene Backgrounds</td><td>Five <code>drawBg*</code> functions (pure Canvas 2D)</td></tr>
+    <tr><td>6 — Scene Definitions</td><td><code>SCENES</code> object: hotspots, NPC refs, exit targets</td></tr>
+    <tr><td>7 — Dialogue System</td><td><code>DIALOGUES</code> trees + <code>DialogueSystem</code> class</td></tr>
+    <tr><td>8 — UI System</td><td><code>UISystem</code>: inventory bar, verb popup, HUD</td></tr>
+    <tr><td>9 — Game Engine</td><td><code>Game</code> class: main loop, walk, transitions, win, help screen, coins</td></tr>
+    <tr><td>10 — Boot</td><td><code>window.onload</code> entry point</td></tr>
+  </table>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2 id="scene-system">4. Scene System</h2>
+
+  <p>Each scene is a plain JavaScript object in the <code>SCENES</code> map (Section 6). Scenes connect to each other via exit hotspots.</p>
+
+  <h3>Scene Object Shape</h3>
+<pre><code><span class="cm">// Example: pub scene</span>
+<span class="kw">const</span> SCENES = {
+  pub: {
+    id:         <span class="str">'pub'</span>,            <span class="cm">// Must match key</span>
+    name:       <span class="str">"Paddy's Pub"</span>,   <span class="cm">// Shown in scene banner</span>
+    paddyStart: { x: 80, y: 155 }, <span class="cm">// Paddy's entry position</span>
+    drawBg:     drawBgPub,          <span class="cm">// Background render function</span>
+    npcs:       [{ id: <span class="str">'siobhan'</span>, type: <span class="str">'siobhan'</span>, x: 240, y: 155, dialogueId: <span class="str">'siobhan'</span> }],
+    hotspots:   [ ... ],
+    dialogues:  { ... },
+  },
+};</code></pre>
+
+  <h3>Hotspot Fields</h3>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Purpose</th></tr>
+    <tr><td><code>id</code></td><td>string</td><td>Unique within scene; keys into <code>scene.dialogues</code></td></tr>
+    <tr><td><code>name</code></td><td>string</td><td>Display name in verb popup</td></tr>
+    <tr><td><code>rect</code></td><td><code>makeRect(x,y,w,h)</code></td><td>Hit area (canvas pixels)</td></tr>
+    <tr><td><code>verbs</code></td><td>string[]</td><td>Available actions: <code>'look'</code>, <code>'take'</code>, <code>'use'</code>, <code>'push'</code></td></tr>
+    <tr><td><code>item</code></td><td>string?</td><td>Item ID added to inventory when taken</td></tr>
+    <tr><td><code>flag</code></td><td>string?</td><td>State flag set when item is taken</td></tr>
+    <tr><td><code>requireFlag</code></td><td>string?</td><td>Flag that must be true before 'take' appears</td></tr>
+    <tr><td><code>isExit</code></td><td>bool?</td><td>If true, verb popup shows "Go" instead</td></tr>
+    <tr><td><code>exitTo</code></td><td>string?</td><td>Scene ID to transition to on "Go"</td></tr>
+  </table>
+
+  <h3>NPC Fields</h3>
+  <table>
+    <tr><th>Field</th><th>Purpose</th></tr>
+    <tr><td><code>id</code></td><td>Unique identifier</td></tr>
+    <tr><td><code>type</code></td><td>Sprite type passed to <code>drawNPC()</code>; must be one of the five known types</td></tr>
+    <tr><td><code>x</code>, <code>y</code></td><td>Position (y = ground / foot level)</td></tr>
+    <tr><td><code>dialogueId</code></td><td>Key into <code>DIALOGUES</code> object</td></tr>
+  </table>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2 id="dialogue-system">5. Dialogue System</h2>
+
+  <p>Dialogue trees live in the <code>DIALOGUES</code> object (Section 7). Each top-level key is a <code>dialogueId</code>; its value is a map of node IDs to node objects.</p>
+
+  <h3>Node Types</h3>
+  <table>
+    <tr><th>Property</th><th>Type</th><th>Behaviour</th></tr>
+    <tr><td><code>lines</code></td><td>string[]</td><td>Displays each line in the dialogue box; player taps to advance</td></tr>
+    <tr><td><code>quiz</code></td><td>object</td><td>Shows a multiple-choice quiz question</td></tr>
+    <tr><td><code>next</code></td><td>string</td><td>Node ID to run after this node completes</td></tr>
+    <tr><td><code>doneFlag</code></td><td>string</td><td>State flag set to <code>true</code> when this node runs</td></tr>
+    <tr><td><code>checkItems</code></td><td>bool</td><td>Checks if all 4 items are in inventory; branches to <code>items_ready</code> or <code>items_missing</code></td></tr>
+    <tr><td><code>winGame</code></td><td>bool</td><td>Sets <code>parade_started</code> flag, triggers win screen</td></tr>
+  </table>
+
+  <h3>Quiz Node Shape</h3>
+<pre><code>quiz1: {
+  quiz: {
+    question: <span class="str">"What color is most associated with St. Patrick's Day?"</span>,
+    options:  [<span class="str">'Green'</span>, <span class="str">'Blue'</span>, <span class="str">'Red'</span>, <span class="str">'Orange'</span>],
+    correct:  0,            <span class="cm">// Index into options (0-based)</span>
+    hint:     <span class="str">"Think of shamrocks!"</span>,
+    flag:     <span class="str">'quiz_pub_q1'</span>,  <span class="cm">// Set to true on correct answer</span>
+  },
+  next: <span class="str">'quiz2'</span>,
+},</code></pre>
+
+  <h3>Async Flow</h3>
+  <p><code>DialogueSystem.run()</code> is an <code>async</code> method. It calls <code>await this.runNode(tree, nodeId)</code> recursively. Each <code>showLines()</code> and <code>showQuiz()</code> returns a <code>Promise</code> that resolves only when the player acts (taps through lines, or answers a quiz correctly).</p>
+  <p>The game mode is set to <code>'dialogue'</code> during this time. Rendering and tap handling in <code>update()</code> are delegated to <code>DialogueSystem.update()</code> and <code>DialogueSystem.handleTap()</code>.</p>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2 id="state-flags">6. State Flags Reference</h2>
+
+  <p>All game state is stored in <code>game.state.flags</code> (a plain object). Flags are set via <code>state.setFlag(name, value)</code> and read via <code>state.getFlag(name)</code>. All flags reset on new game.</p>
+
+  <table>
+    <tr><th>Flag</th><th>Set when</th><th>Used for</th></tr>
+    <tr><td><code>has_shamrock</code></td><td>Shamrock Bouquet taken</td><td>Item tracking</td></tr>
+    <tr><td><code>has_banner</code></td><td>Parade Banner taken</td><td>Item tracking</td></tr>
+    <tr><td><code>has_horseshoe</code></td><td>Lucky Horseshoe taken</td><td>Item tracking</td></tr>
+    <tr><td><code>has_bulb</code></td><td>Green Light Bulb taken</td><td>Item tracking</td></tr>
+    <tr><td><code>quiz_pub_done</code></td><td>Siobhan farewell node reached</td><td>Triggers <code>already_done</code> branch on re-talk</td></tr>
+    <tr><td><code>quiz_cathedral_done</code></td><td>Father Callahan farewell reached</td><td>Unlocks Parade Banner hotspot take verb</td></tr>
+    <tr><td><code>quiz_steamtown_done</code></td><td>Seamus farewell reached</td><td>Unlocks Lucky Horseshoe hotspot take verb</td></tr>
+    <tr><td><code>quiz_lackawanna_done</code></td><td>Maggie farewell reached</td><td>Unlocks Green Light Bulb hotspot take verb</td></tr>
+    <tr><td><code>quiz_pub_q1/q2</code></td><td>Correct quiz answer</td><td>Adds 10 to score</td></tr>
+    <tr><td><code>quiz_cath_q1/q2</code></td><td>Correct quiz answer</td><td>Adds 10 to score</td></tr>
+    <tr><td><code>quiz_steam_q1/q2</code></td><td>Correct quiz answer</td><td>Adds 10 to score</td></tr>
+    <tr><td><code>quiz_lacka_q1/q2</code></td><td>Correct quiz answer</td><td>Adds 10 to score</td></tr>
+    <tr><td><code>quiz_parade_q1/q2</code></td><td>Correct quiz answer</td><td>Adds 10 to score</td></tr>
+    <tr><td><code>parade_started</code></td><td>Marshal <code>winGame</code> node</td><td>Triggers win screen</td></tr>
+    <tr><td><code>coin_pub</code></td><td>Pub Lucky Coin collected</td><td>Hides coin, +5 score</td></tr>
+    <tr><td><code>coin_cathedral</code></td><td>Cathedral Lucky Coin collected</td><td>Hides coin, +5 score</td></tr>
+    <tr><td><code>coin_steamtown</code></td><td>Steamtown Lucky Coin collected</td><td>Hides coin, +5 score</td></tr>
+    <tr><td><code>coin_lackawanna</code></td><td>Lackawanna Lucky Coin collected</td><td>Hides coin, +5 score</td></tr>
+    <tr><td><code>coin_parade</code></td><td>Parade Lucky Coin collected</td><td>Hides coin, +5 score</td></tr>
+  </table>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2 id="lucky-coins">7. Lucky Coins</h2>
+
+  <p>Lucky Coins are hidden gold coins placed in each scene. They're subtle — slightly visible but easy to miss — and reward exploration with +5 points and an Irish history fun fact.</p>
+
+  <h3>Data Structure</h3>
+<pre><code><span class="kw">const</span> LUCKY_COINS = [
+  {
+    id:       <span class="str">'coin_pub'</span>,    <span class="cm">// Unique ID (also the state flag name)</span>
+    scene:    <span class="str">'pub'</span>,         <span class="cm">// Must match a SCENES key</span>
+    x:        58,              <span class="cm">// Canvas X position</span>
+    y:        125,             <span class="cm">// Canvas Y position (must be &lt; VIEWPORT_H = 195)</span>
+    dialogue: <span class="str">"☘ Fun Fact: ..."</span>, <span class="cm">// Text shown in dialogue box on collect</span>
+  },
+  <span class="cm">// ... one per scene</span>
+];</code></pre>
+
+  <h3>Coin Positions</h3>
+  <table>
+    <tr><th>Scene</th><th>X</th><th>Y</th><th>Near what</th></tr>
+    <tr><td>pub</td><td>58</td><td>125</td><td>Fireplace mantle</td></tr>
+    <tr><td>cathedral</td><td>295</td><td>135</td><td>Parade banner pole</td></tr>
+    <tr><td>steamtown</td><td>65</td><td>158</td><td>Spike display box</td></tr>
+    <tr><td>lackawanna</td><td>20</td><td>125</td><td>Lamppost base</td></tr>
+    <tr><td>parade</td><td>290</td><td>130</td><td>Right crowd area</td></tr>
+  </table>
+
+  <h3>Rendering</h3>
+  <p>Coins are drawn in <code>Game._renderCoins(ctx)</code> every frame (<em>not</em> in the background cache). This lets them disappear when collected without invalidating the background. The glint sparkle animation uses <code>Math.floor(animTimer * 60) % 90</code> so it fires once every 1.5 seconds.</p>
+
+  <h3>Hit Detection</h3>
+  <p>In <code>_handlePlayTap(x, y)</code>, coins are checked <em>before</em> hotspots (step 4b). A coin is hit when <code>dx² + dy² &lt; 100</code> (radius = 10px). Collected coins are flagged in <code>state</code> and skipped in both rendering and hit detection.</p>
+
+  <h3>Adding a New Lucky Coin</h3>
+  <ol>
+    <li>Pick a scene ID from <code>SCENES</code> keys</li>
+    <li>Pick x/y coordinates (must be within 0–320 and 0–195)</li>
+    <li>Write a fun Irish-American history fact</li>
+    <li>Add an entry to the <code>LUCKY_COINS</code> array at the top of Section 1</li>
+    <li>That's it — detection, rendering, and collection are automatic</li>
+  </ol>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2 id="adding-content">8. Adding New Content</h2>
+
+  <h3>Add a New Scene</h3>
+  <ol>
+    <li>Write a <code>drawBgMyScene(ctx)</code> function in Section 5. Use only Canvas 2D — no image loading.</li>
+    <li>Add an entry to <code>SCENES</code> in Section 6:
+<pre><code>myScene: {
+  id: <span class="str">'myScene'</span>,
+  name: <span class="str">"My New Location"</span>,
+  paddyStart: { x: 80, y: 155 },
+  drawBg: drawBgMyScene,
+  npcs: [],       <span class="cm">// or add an NPC</span>
+  hotspots: [
+    { id: <span class="str">'exit_back'</span>, name: <span class="str">'Back to Pub'</span>, rect: makeRect(0,100,20,95),
+      verbs: [<span class="str">'use'</span>], isExit: true, exitTo: <span class="str">'pub'</span> },
+  ],
+  dialogues: {},
+},</code></pre>
+    </li>
+    <li>Add an exit hotspot in an existing scene pointing to <code>exitTo: 'myScene'</code>.</li>
+    <li>Optionally add a Lucky Coin for the scene.</li>
+  </ol>
+
+  <h3>Add a New NPC</h3>
+  <ol>
+    <li>Add a new <code>else if (type === 'myNpc')</code> block inside <code>drawNPC()</code> in Section 4. The character is drawn centered at <code>(0, 0)</code> where <code>y=0</code> is the floor/foot level.</li>
+    <li>Create a dialogue tree in <code>DIALOGUES</code>:
+<pre><code>myNpc: {
+  root: {
+    lines: [<span class="str">"Hello, Paddy!"</span>],
+    next: <span class="str">'quiz1'</span>,
+  },
+  quiz1: { quiz: { question: <span class="str">"..."</span>, options: [...], correct: 0, hint: <span class="str">"..."</span>, flag: <span class="str">'quiz_my_q1'</span> }, next: <span class="str">'farewell'</span> },
+  farewell: { lines: [<span class="str">"Good luck!"</span>], doneFlag: <span class="str">'quiz_my_done'</span> },
+  already_done: { lines: [<span class="str">"See you later!"</span>] },
+},</code></pre>
+    </li>
+    <li>Add the NPC to the scene's <code>npcs</code> array: <code>{ id: 'myNpc', type: 'myNpc', x: 200, y: 155, dialogueId: 'myNpc' }</code></li>
+    <li>Add the NPC's display name to <code>Game._npcDisplayName()</code></li>
+  </ol>
+
+  <h3>Add a New Quiz Question</h3>
+  <ol>
+    <li>Choose which NPC's dialogue to extend</li>
+    <li>Add a new quiz node (e.g. <code>quiz3</code>) after <code>quiz2</code></li>
+    <li>Change <code>quiz2.next</code> from <code>'farewell'</code> to <code>'quiz3'</code></li>
+    <li>Set <code>quiz3.next: 'farewell'</code></li>
+    <li>Each correct answer is worth +10 pts automatically</li>
+  </ol>
+
+  <h3>Add a New Lucky Coin</h3>
+<pre><code><span class="cm">// In Section 1, add to LUCKY_COINS array:</span>
+{ id: <span class="str">'coin_myScene'</span>, scene: <span class="str">'myScene'</span>, x: 150, y: 120,
+  dialogue: <span class="str">"☘ Fun Fact: ..."</span> }</code></pre>
+  <p>That's all — no other code changes needed.</p>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2 id="palette">9. Palette Reference</h2>
+
+  <p>All named colors are defined in the <code>PALETTE</code> constant at the top of Section 1. Use these constants throughout drawing functions to maintain visual consistency.</p>
+
+  <div class="palette">
+    <div class="swatch"><div class="swatch-box" style="background:#00aa44"></div><div class="swatch-name">emerald</div><div class="swatch-hex">#00aa44</div></div>
+    <div class="swatch"><div class="swatch-box" style="background:#004422"></div><div class="swatch-name">darkGreen</div><div class="swatch-hex">#004422</div></div>
+    <div class="swatch"><div class="swatch-box" style="background:#2d6a2d"></div><div class="swatch-name">grassGreen</div><div class="swatch-hex">#2d6a2d</div></div>
+    <div class="swatch"><div class="swatch-box" style="background:#0a1a0a"></div><div class="swatch-name">bgGreen</div><div class="swatch-hex">#0a1a0a</div></div>
+    <div class="swatch"><div class="swatch-box" style="background:#ffd700"></div><div class="swatch-name">gold</div><div class="swatch-hex">#ffd700</div></div>
+    <div class="swatch"><div class="swatch-box" style="background:#f0f0e8"></div><div class="swatch-name">white</div><div class="swatch-hex">#f0f0e8</div></div>
+    <div class="swatch"><div class="swatch-box" style="background:#c8a87a"></div><div class="swatch-name">stone</div><div class="swatch-hex">#c8a87a</div></div>
+    <div class="swatch"><div class="swatch-box" style="background:#5a3010"></div><div class="swatch-name">wood</div><div class="swatch-hex">#5a3010</div></div>
+    <div class="swatch"><div class="swatch-box" style="background:#1a3a5c"></div><div class="swatch-name">sky</div><div class="swatch-hex">#1a3a5c</div></div>
+    <div class="swatch"><div class="swatch-box" style="background:#ff8800"></div><div class="swatch-name">orange</div><div class="swatch-hex">#ff8800</div></div>
+    <div class="swatch"><div class="swatch-box" style="background:#cc2200"></div><div class="swatch-name">red</div><div class="swatch-hex">#cc2200</div></div>
+    <div class="swatch"><div class="swatch-box" style="background:#888888"></div><div class="swatch-name">grey</div><div class="swatch-hex">#888888</div></div>
+    <div class="swatch"><div class="swatch-box" style="background:#8b4513"></div><div class="swatch-name">brown</div><div class="swatch-hex">#8b4513</div></div>
+    <div class="swatch"><div class="swatch-box" style="background:#fff8dc"></div><div class="swatch-name">cream</div><div class="swatch-hex">#fff8dc</div></div>
+    <div class="swatch"><div class="swatch-box" style="background:#4488cc"></div><div class="swatch-name">blue</div><div class="swatch-hex">#4488cc</div></div>
+    <div class="swatch"><div class="swatch-box" style="background:#884488"></div><div class="swatch-name">purple</div><div class="swatch-hex">#884488</div></div>
+  </div>
+
+  <h3>Coordinate System</h3>
+  <ul>
+    <li><strong>Canvas:</strong> 320×240 px virtual, scaled to viewport. Origin top-left.</li>
+    <li><strong>Viewport height:</strong> <code>VIEWPORT_H = 195</code> — the playfield. Below this is the inventory bar.</li>
+    <li><strong>Inventory bar:</strong> <code>INVENTORY_Y = 195</code>, height = 45px.</li>
+    <li><strong>Sprite origin:</strong> Characters are drawn at <code>(x, y)</code> where <code>y</code> = ground/foot level. All offsets are negative (upward).</li>
+  </ul>
+
+  <h3>Background Caching</h3>
+  <p>Each scene's background is rendered once into an offscreen canvas (<code>bgCache</code>) and then blitted each frame with <code>ctx.drawImage(bgCache, 0, 0)</code>. The cache is invalidated (<code>bgCache = null</code>) on scene transitions. Lucky Coins and NPCs are drawn <em>after</em> the cached image, so they are never included in the cache.</p>
+
+  <div class="tip">
+    <strong>Tip:</strong> Avoid using <code>Math.random()</code> in background drawing functions — since the background is cached on the first frame, you'd get a different random result each time the cache is invalidated. Use a seeded pattern instead (e.g., deterministic loops).
+  </div>
+
+  <div class="note">
+    <strong>Mobile:</strong> The canvas scales to fit the viewport using <code>min(100vw, 100vh * 4/3)</code>. Tap events work the same as mouse events. The Input class normalizes coordinates back to virtual 320×240 space.
+  </div>
+
+  <hr style="border:none;border-top:1px solid #224422;margin:40px 0">
+  <p style="color:#446644;font-size:13px;text-align:center">Paddy's Parade Day Adventure — stpatparade.com · Erin Go Bragh! ☘</p>
+
+</main>
+</div>
+</body>
+</html>
