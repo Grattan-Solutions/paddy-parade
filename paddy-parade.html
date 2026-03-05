@@ -67,6 +67,7 @@ const PALETTE = {
 
 const LUCKY_COINS = [
   { id: 'coin_pub',        scene: 'pub',        x: 58,  y: 125, dialogue: "☘ Fun Fact: The first St. Patrick's Day parade in America was held in Boston in 1737 — over a century before Scranton's parade began!" },
+  { id: 'coin_footrace',   scene: 'footrace',   x: 280, y: 155, dialogue: "☘ Fun Fact: The Brian P. Kelly Memorial Footrace has been a St. Patrick's Day morning tradition in Scranton since 1978. Runners wear green head-to-toe!" },
   { id: 'coin_cathedral',  scene: 'cathedral',  x: 295, y: 135, dialogue: "☘ Fun Fact: St. Peter's Cathedral was built by Irish immigrant stonemasons in 1880. They used Scranton's own Nay Aug brownstone!" },
   { id: 'coin_steamtown',  scene: 'steamtown',  x: 65,  y: 158, dialogue: "☘ Fun Fact: The Irish worked as 'powder monkeys' in the coal mines — their job was to set the dynamite charges. Dangerous work!" },
   { id: 'coin_lackawanna', scene: 'lackawanna', x: 20,  y: 125, dialogue: "☘ Fun Fact: The Electric City sign was nearly demolished in 1974! Local citizens rallied to save it. Today it's on the National Register of Historic Places." },
@@ -259,7 +260,76 @@ const QUESTION_BANK = [
     question: "What does the Irish phrase 'Póg mo thóin' humorously translate to?",
     options: ['Kiss the Blarney Stone', 'Good morning to you', 'Kiss my rear end', 'Good health always'], correct: 2,
     hint: "It's a cheeky phrase — probably best saved for close friends!" },
+
+  // ── FOOTRACE (difficulty 1–3) ─────────────────────────────────────
+  { id: 'q_footrace_what', scene: 'footrace', difficulty: 1,
+    question: "What is the Brian P. Kelly Memorial Footrace?",
+    options: ["A St. Patrick's Day morning race in Scranton", 'A charity walk in Dublin', 'A horse race in Killarney', 'A cycling event in Cork'], correct: 0,
+    hint: "It kicks off St. Patrick's Day morning right here in Scranton, PA!" },
+  { id: 'q_footrace_time', scene: 'footrace', difficulty: 1,
+    question: "What time does the Brian P. Kelly Memorial Footrace start on Parade Day?",
+    options: ['8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM'], correct: 2,
+    hint: "The race starts a couple of hours before the noon parade!" },
+  { id: 'q_footrace_year', scene: 'footrace', difficulty: 2,
+    question: "What year was the Brian P. Kelly Memorial Footrace established?",
+    options: ['1962', '1978', '1986', '1995'], correct: 1,
+    hint: "It was founded in the late 1970s to honor a beloved community figure." },
+  { id: 'q_footrace_dublin', scene: 'footrace', difficulty: 2,
+    question: "What famous running event is held in Dublin, Ireland on St. Patrick's Day weekend?",
+    options: ["The Dublin St. Patrick's Classic 10K", 'The Liffey Sprint', 'The Phoenix Park Marathon', 'The Blarney 5K'], correct: 0,
+    hint: "Dublin hosts a major road race every St. Patrick's Day — a 10K through the city!" },
+  { id: 'q_footrace_kelly', scene: 'footrace', difficulty: 3,
+    question: "Who was Brian P. Kelly, namesake of the Scranton footrace?",
+    options: ['A beloved local community figure and longtime parade participant', 'A professional marathon runner', 'The first mayor of Scranton', 'A famous Irish poet'], correct: 0,
+    hint: "He was known and loved throughout the Scranton community." },
+  { id: 'q_footrace_distance', scene: 'footrace', difficulty: 3,
+    question: "Approximately how long is the Brian P. Kelly Memorial Footrace course?",
+    options: ['1 mile', 'Approximately 3.1 miles (5K)', '10 miles', 'A half-marathon (13.1 miles)'], correct: 1,
+    hint: "A 5K is a popular race distance — about 3.1 miles." },
 ];
+
+// ═══════════════════════════════════════════════════════════════════
+// STORAGE HELPER
+// ═══════════════════════════════════════════════════════════════════
+
+const Storage = {
+  save(k, v) { try { localStorage.setItem('paddy_' + k, JSON.stringify(v)); } catch(_) {} },
+  load(k, def) { try { const v = localStorage.getItem('paddy_' + k); return v !== null ? JSON.parse(v) : def; } catch(_) { return def; } },
+  clear(k) { try { localStorage.removeItem('paddy_' + k); } catch(_) {} },
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// SOUND SYSTEM
+// ═══════════════════════════════════════════════════════════════════
+
+class SoundSystem {
+  constructor() { this._ctx = null; }
+  _getCtx() {
+    if (!this._ctx) this._ctx = new (window.AudioContext || window.webkitAudioContext)();
+    return this._ctx;
+  }
+  _tone(freq, dur, type = 'sine', vol = 0.3, delay = 0) {
+    try {
+      const ctx = this._getCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+      gain.gain.setValueAtTime(vol, ctx.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + dur);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + dur + 0.05);
+    } catch(_) {}
+  }
+  coin()    { this._tone(880, 0.08); this._tone(1320, 0.12, 'sine', 0.25, 0.08); }
+  correct() { [523, 659, 784].forEach((f, i) => this._tone(f, 0.15, 'sine', 0.3, i * 0.1)); }
+  wrong()   { this._tone(220, 0.15, 'sawtooth', 0.2); this._tone(180, 0.2, 'sawtooth', 0.15, 0.1); }
+  pickup()  { [440, 554, 659, 880].forEach((f, i) => this._tone(f, 0.1, 'sine', 0.2, i * 0.07)); }
+  click()   { this._tone(600, 0.04, 'square', 0.1); }
+  door()    { this._tone(120, 0.3, 'sawtooth', 0.15); this._tone(100, 0.2, 'sawtooth', 0.1, 0.1); }
+}
+const sound = new SoundSystem();
 
 // ═══════════════════════════════════════════════════════════════════
 // SECTION 2: GAME STATE
@@ -674,6 +744,58 @@ function drawNPC(ctx, x, y, type, animFrame = 0, facing = 1) {
     npcEyes(0, -41);
   }
 
+  else if (type === 'race_director') {
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath(); ctx.ellipse(0, 0, 8, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+    // Legs
+    roundRect(ctx, -3, -12, 3, 12, 1.5, '#333', null);
+    roundRect(ctx,  1, -12, 3, 12, 1.5, '#333', null);
+    // Running shorts
+    ctx.fillStyle = '#003366';
+    ctx.beginPath(); ctx.moveTo(-6,0); ctx.lineTo(-4,-16); ctx.lineTo(4,-16); ctx.lineTo(6,0); ctx.closePath(); ctx.fill();
+    // Reflective safety vest (orange-yellow)
+    roundRect(ctx, -6, -28, 12, 13, 3, '#ff9900', '#cc6600');
+    // Reflective stripes on vest
+    ctx.strokeStyle = 'rgba(255,255,150,0.8)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(-6, -22); ctx.lineTo(6, -22); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-6, -19); ctx.lineTo(6, -19); ctx.stroke();
+    // Left arm (straight down)
+    roundRect(ctx, -9, -28, 4, 10, 2, '#ff9900', null);
+    // Right arm holding clipboard (slightly angled)
+    ctx.save(); ctx.translate(5, -27); ctx.rotate(0.15);
+    roundRect(ctx, -2, 0, 4, 10, 2, '#ff9900', null); ctx.restore();
+    // Clipboard in right hand
+    roundRect(ctx, 7, -26, 9, 12, 1, PALETTE.cream, '#888');
+    roundRect(ctx, 8.5, -27.5, 6, 2.5, 0.5, '#888', null);
+    ctx.strokeStyle = '#555'; ctx.lineWidth = 0.7;
+    ctx.beginPath(); ctx.moveTo(9,-23); ctx.lineTo(15,-23); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(9,-21); ctx.lineTo(15,-21); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(9,-19); ctx.lineTo(13,-19); ctx.stroke();
+    // Whistle on cord around neck
+    ctx.strokeStyle = '#cc8800'; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(-2,-28); ctx.bezierCurveTo(-5,-24,-3,-22,-1,-22); ctx.stroke();
+    ctx.fillStyle = '#ccaa00';
+    ctx.beginPath(); ctx.ellipse(-1,-21,2,1,0.3,0,Math.PI*2); ctx.fill();
+    // Head
+    ctx.fillStyle = '#e8c8a0';
+    ctx.beginPath(); ctx.arc(0, -35, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#c8a880'; ctx.lineWidth = 0.5; ctx.stroke();
+    // Cap (baseball-style brim)
+    ctx.fillStyle = '#003366';
+    ctx.beginPath(); ctx.arc(0, -35, 6, Math.PI, 0); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0, -35, 8, 2, 0, 0, Math.PI * 2); ctx.fill();
+    // Cap brim peak forward
+    ctx.fillStyle = '#002244';
+    ctx.beginPath(); ctx.moveTo(-3,-35); ctx.lineTo(10,-35); ctx.lineTo(9,-33); ctx.lineTo(-2,-33); ctx.closePath(); ctx.fill();
+    // Eyes
+    npcEyes(0, -35);
+    // Small moustache
+    ctx.fillStyle = '#555';
+    ctx.beginPath(); ctx.ellipse(-2,-32,2,0.8,-0.1,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse( 2,-32,2,0.8, 0.1,0,Math.PI*2); ctx.fill();
+  }
+
   ctx.restore();
 }
 
@@ -789,6 +911,29 @@ function drawItemIcon(ctx, x, y, itemId) {
       ctx.beginPath(); ctx.moveTo(-3.5, 1.5); ctx.lineTo(3.5, 1.5); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(-3.5, 3); ctx.lineTo(3.5, 3); ctx.stroke();
       roundRect(ctx, -2.5, 4, 5, 3, 1, PALETTE.grey, '#555');
+      break;
+    }
+    case 'race_bib': {
+      // White bib rectangle with rounded corners
+      roundRect(ctx, -11, -10, 22, 18, 2, PALETTE.white, '#aaa');
+      // Green stripe across top of bib
+      ctx.fillStyle = PALETTE.emerald;
+      ctx.fillRect(-11, -10, 22, 5);
+      // Green number "1" in center
+      ctx.fillStyle = PALETTE.emerald;
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('1', 0, 5);
+      ctx.textAlign = 'left';
+      // Safety pin marks at corners (small grey circles)
+      ctx.fillStyle = '#888';
+      ctx.beginPath(); ctx.arc(-9, -8, 1.2, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc( 9, -8, 1.2, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(-9,  6, 1.2, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc( 9,  6, 1.2, 0, Math.PI * 2); ctx.fill();
+      // Drop shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.12)';
+      ctx.beginPath(); ctx.ellipse(0, 10, 10, 2, 0, 0, Math.PI * 2); ctx.fill();
       break;
     }
   }
@@ -1334,6 +1479,113 @@ function drawBgParade(ctx) {
   }
 }
 
+function drawBgFootrace(ctx) {
+  // Morning sky (pale blue)
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, 120);
+  skyGrad.addColorStop(0, '#7bbfd4'); skyGrad.addColorStop(1, '#b8dde8');
+  ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, 320, 120);
+
+  // Road surface (grey pavement)
+  ctx.fillStyle = '#9a9a9a'; ctx.fillRect(0, 118, 320, 77);
+  // Road center line (dashed yellow)
+  ctx.strokeStyle = '#ffdd00'; ctx.lineWidth = 1.5; ctx.setLineDash([8, 6]);
+  ctx.beginPath(); ctx.moveTo(0, 158); ctx.lineTo(320, 158); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Crowd barriers left side (metal silver posts + horizontal bar)
+  ctx.strokeStyle = '#aaa'; ctx.lineWidth = 2;
+  for (let bx = 0; bx <= 90; bx += 18) {
+    ctx.beginPath(); ctx.moveTo(bx, 120); ctx.lineTo(bx, 145); ctx.stroke();
+  }
+  ctx.beginPath(); ctx.moveTo(0, 130); ctx.lineTo(90, 130); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, 143); ctx.lineTo(90, 143); ctx.stroke();
+
+  // Crowd on left — silhouette blobs
+  ctx.fillStyle = '#556633';
+  for (let cx = 0; cx < 90; cx += 16) {
+    ctx.beginPath(); ctx.ellipse(cx + 8, 112, 6, 10, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + 8, 103, 5, 0, Math.PI * 2); ctx.fill();
+  }
+  // Crowd signs (green flags)
+  ctx.strokeStyle = '#224422'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(15, 95); ctx.lineTo(15, 108); ctx.stroke();
+  ctx.fillStyle = PALETTE.emerald; ctx.fillRect(15, 92, 12, 7);
+  ctx.beginPath(); ctx.moveTo(55, 90); ctx.lineTo(55, 105); ctx.stroke();
+  ctx.fillStyle = '#cc4400'; ctx.fillRect(55, 87, 14, 7);
+
+  // Registration table (left side)
+  ctx.fillStyle = '#d4b896'; ctx.fillRect(3, 130, 72, 30);
+  ctx.fillStyle = PALETTE.wood; ctx.fillRect(3, 128, 72, 5);
+  // Table legs
+  ctx.strokeStyle = PALETTE.wood; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(8, 160); ctx.lineTo(8, 175); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(70, 160); ctx.lineTo(70, 175); ctx.stroke();
+  // Bibs hanging on table front
+  for (let bi = 0; bi < 3; bi++) {
+    ctx.fillStyle = PALETTE.white;
+    ctx.fillRect(10 + bi * 18, 132, 12, 16);
+    ctx.fillStyle = PALETTE.emerald;
+    ctx.font = '7px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(String(bi + 2), 16 + bi * 18, 143);
+  }
+  ctx.textAlign = 'left';
+  // "REGISTRATION" sign on table
+  ctx.fillStyle = '#003366'; ctx.fillRect(5, 128, 68, 5);
+  ctx.fillStyle = PALETTE.white; ctx.font = '4px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('REGISTRATION', 39, 132); ctx.textAlign = 'left';
+
+  // Finish line banner poles
+  ctx.strokeStyle = '#888'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(100, 0); ctx.lineTo(100, 60); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(220, 0); ctx.lineTo(220, 60); ctx.stroke();
+  // Finish line banner (tricolor stripes)
+  ctx.fillStyle = PALETTE.emerald; ctx.fillRect(100, 22, 40, 26);
+  ctx.fillStyle = PALETTE.white;   ctx.fillRect(140, 22, 40, 26);
+  ctx.fillStyle = PALETTE.orange;  ctx.fillRect(180, 22, 40, 26);
+  // Banner border
+  ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
+  ctx.strokeRect(100, 22, 120, 26);
+  // "FINISH" text on banner
+  ctx.fillStyle = PALETTE.white;
+  ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('FINISH', 160, 40);
+  ctx.textAlign = 'left';
+  // Rope connecting poles
+  ctx.strokeStyle = '#888'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(100, 22); ctx.quadraticCurveTo(160, 18, 220, 22); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(100, 48); ctx.quadraticCurveTo(160, 52, 220, 48); ctx.stroke();
+
+  // Distance marker post (right side, "1 MILE")
+  ctx.fillStyle = '#888'; ctx.fillRect(273, 90, 4, 80);
+  ctx.fillStyle = '#ffd700'; ctx.fillRect(263, 88, 24, 18);
+  ctx.fillStyle = '#222'; ctx.font = 'bold 5px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('1 MILE', 275, 97);
+  ctx.fillStyle = PALETTE.emerald; ctx.font = '4px sans-serif';
+  ctx.fillText('5K', 275, 104); ctx.textAlign = 'left';
+
+  // Crowd barriers right side
+  ctx.strokeStyle = '#aaa'; ctx.lineWidth = 2;
+  for (let bx = 230; bx <= 320; bx += 18) {
+    ctx.beginPath(); ctx.moveTo(bx, 120); ctx.lineTo(bx, 145); ctx.stroke();
+  }
+  ctx.beginPath(); ctx.moveTo(230, 130); ctx.lineTo(320, 130); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(230, 143); ctx.lineTo(320, 143); ctx.stroke();
+
+  // Crowd right side silhouettes
+  ctx.fillStyle = '#664455';
+  for (let cx = 234; cx < 320; cx += 16) {
+    ctx.beginPath(); ctx.ellipse(cx + 6, 112, 6, 10, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + 6, 103, 5, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Exit sign area hint (left edge "Cathedral St.")
+  ctx.fillStyle = '#336633'; ctx.fillRect(0, 100, 18, 60);
+  ctx.fillStyle = PALETTE.white; ctx.font = '4px sans-serif'; ctx.textAlign = 'center';
+  ctx.save(); ctx.translate(5, 155); ctx.rotate(-Math.PI / 2);
+  ctx.fillText('Cathedral St.', 0, 0); ctx.restore();
+  ctx.textAlign = 'left';
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // SECTION 6: SCENE DEFINITIONS
 // ═══════════════════════════════════════════════════════════════════
@@ -1358,13 +1610,33 @@ const SCENES = {
       { id: 'fireplace',    name: 'Stone Fireplace', rect: makeRect(10, 50, 70, 80),   verbs: ['look'] },
       { id: 'shamrock',     name: 'Shamrock Bouquet', rect: makeRect(148, 110, 50, 30), verbs: ['look', 'take'], item: 'shamrock_bouquet', flag: 'has_shamrock', requireFlag: 'quiz_pub_done' },
       { id: 'noticeboard',  name: 'Notice Board',    rect: makeRect(278, 28, 40, 58),  verbs: ['look'] },
-      { id: 'exit_door',    name: 'Pub Door',        rect: makeRect(0, 100, 20, 80),   verbs: ['look', 'use'], isExit: true, exitTo: 'cathedral' },
+      { id: 'exit_door',    name: 'Pub Door',        rect: makeRect(0, 100, 20, 80),   verbs: ['look', 'use'], isExit: true, exitTo: 'footrace' },
     ],
     dialogues: {
       fireplace:   "A warm stone fireplace. The embers are still glowing from last night.",
       shamrock:    "A beautiful bouquet of fresh shamrocks. Perfect for the parade float!",
       noticeboard: "The notice board says: SCRANTON ST. PATRICK'S PARADE - TODAY! Mulberry & Wyoming Ave, 12:00 NOON!",
       exit_door:   "The front door of the pub leads out to the street.",
+    },
+  },
+
+  footrace: {
+    id: 'footrace',
+    name: 'Kelly Memorial Footrace',
+    paddyStart: { x: 80, y: 155 },
+    drawBg: drawBgFootrace,
+    npcs: [{ id: 'race_director', type: 'race_director', x: 240, y: 155, dialogueId: 'race_director' }],
+    hotspots: [
+      { id: 'finish_banner',   name: 'Finish Line Banner',  rect: makeRect(100, 22, 120, 30), verbs: ['look'] },
+      { id: 'reg_table',       name: 'Registration Table',  rect: makeRect(3, 128, 72, 32),   verbs: ['look'] },
+      { id: 'race_bib_pickup', name: 'Race Bib',            rect: makeRect(8, 130, 44, 20),   verbs: ['look', 'take'], item: 'race_bib', flag: 'has_bib', requireFlag: 'quiz_footrace_done' },
+      { id: 'exit_cathedral',  name: 'Cathedral Street',    rect: makeRect(0, 100, 18, 80),   verbs: ['look', 'use'], isExit: true, exitTo: 'cathedral' },
+    ],
+    dialogues: {
+      finish_banner:   "The finish line banner reads: 'BRIAN P. KELLY MEMORIAL FOOTRACE — 10:00 AM'. The crowd is cheering the last runners home!",
+      reg_table:       "The registration table has rows of numbered bibs. One is still unclaimed — a green #1 bib!",
+      race_bib_pickup: "A bright green race bib with the number 1 on it. Perfect for the parade!",
+      exit_cathedral:  "Cathedral Street runs up the hill to St. Peter's Cathedral. Paddy can hear the bells from here.",
     },
   },
 
@@ -1460,24 +1732,45 @@ const SCENES = {
 // ═══════════════════════════════════════════════════════════════════
 
 const DIALOGUES = {
+  race_director: {
+    root: {
+      lines: [
+        "Paddy! Grand to see ye at the footrace. The Brian P. Kelly Memorial — started in his honor back in 1978.",
+        "Brian was a beloved Scranton man — ran the parade every year, rain or shine.",
+        "We've got a spare race bib for ye — number one, no less! — but first, prove you know your Irish running history!",
+      ],
+      next: 'quiz1',
+    },
+    quiz1: { quizFromBank: { scene: 'footrace' }, next: 'farewell' },
+    farewell: {
+      lines: [
+        "Well run, Paddy! That green bib is yours — wear it proudly on the float!",
+        "Now get yourself to St. Peter's — Father Callahan is expecting ye!",
+      ],
+      doneFlag: 'quiz_footrace_done',
+    },
+    already_done: {
+      lines: ["The bib is yours, Paddy! Go get it and head up to the Cathedral!"],
+    },
+  },
+
   siobhan: {
     root: {
       lines: [
         "Top o' the mornin', Paddy! Oh, I'm so glad ye're here!",
         "The St. Patrick's Parade starts at noon — but we're in terrible trouble!",
-        "Grand Marshal O'Brien says we're missing FOUR essential items for the parade!",
+        "Grand Marshal O'Brien says we're missing FIVE essential items for the parade!",
         "Without them, the parade can't begin. Scranton would be heartbroken!",
-        "We need: a Shamrock Bouquet, the Parade Banner, a Lucky Horseshoe, and a Green Light Bulb.",
+        "We need: a Shamrock Bouquet, the Parade Banner, a Lucky Horseshoe, a Green Light Bulb — and a Race Bib from the Kelly Memorial Footrace!",
         "Before ye go, Paddy — I've a quick quiz for ye. Show everyone ye know your Irish history!",
       ],
       next: 'quiz1',
     },
-    quiz1: { quizFromBank: { scene: 'pub' }, next: 'quiz2' },
-    quiz2: { quizFromBank: { scene: 'pub' }, next: 'farewell' },
+    quiz1: { quizFromBank: { scene: 'pub' }, next: 'farewell' },
     farewell: {
       lines: [
         "Brilliant! Now, there's a Shamrock Bouquet right there on the table — take it!",
-        "Then head to St. Peter's Cathedral, Steamtown, and Lackawanna Avenue.",
+        "Then pop over to the Kelly Footrace, St. Peter's Cathedral, Steamtown, and Lackawanna Avenue.",
         "Hurry, Paddy! The clock is ticking! Erin go Bragh!",
       ],
       doneFlag: 'quiz_pub_done',
@@ -1567,7 +1860,7 @@ const DIALOGUES = {
     root: {
       lines: [
         "Paddy, lad! I've been waiting for ye!",
-        "The parade cannot begin without those four items.",
+        "The parade cannot begin without those five items.",
         "Every St. Patrick's Parade in Scranton tells our story — the story of Irish immigrants.",
         "They came with nothing but their faith and their courage. And they built this city.",
         "Do ye have everything? Let's find out with one last bit of trivia!",
@@ -1581,7 +1874,7 @@ const DIALOGUES = {
     },
     items_ready: {
       lines: [
-        "All four items! The Shamrock Bouquet, the Parade Banner, the Lucky Horseshoe, and the Green Light Bulb!",
+        "All five items! The Shamrock Bouquet, the Parade Banner, the Lucky Horseshoe, the Green Light Bulb — and the Race Bib from this morning's footrace!",
         "Scranton, are ye ready?! LET THE PARADE BEGIN!!!",
         "ERIN GO BRAGH!",
       ],
@@ -1590,8 +1883,8 @@ const DIALOGUES = {
     items_missing: {
       lines: [
         "Hmm, we're still missing some items, Paddy.",
-        "Check your inventory — you'll need all four before we can start!",
-        "The Shamrock Bouquet, Parade Banner, Lucky Horseshoe, and Green Light Bulb.",
+        "Check your inventory — you'll need all five before we can start!",
+        "The Shamrock Bouquet, Parade Banner, Lucky Horseshoe, Green Light Bulb, and Race Bib.",
       ],
     },
   },
@@ -1607,6 +1900,7 @@ class DialogueSystem {
     this.npcType = '';
     this.resolve = null;
     this.tapReady = false;
+    this.tapCount = 0;
     this.quizActive = false;
     this.quizData = null;
     this.quizSelected = null;
@@ -1660,7 +1954,7 @@ class DialogueSystem {
     }
 
     if (node.checkItems) {
-      const hasAll = ['has_shamrock','has_banner','has_horseshoe','has_bulb']
+      const hasAll = ['has_shamrock','has_banner','has_horseshoe','has_bulb','has_bib']
         .every(f => this.game.state.getFlag(f));
       await this.runNode(tree, hasAll ? 'items_ready' : 'items_missing');
       return;
@@ -1682,6 +1976,7 @@ class DialogueSystem {
       this.lineIndex = 0;
       this.resolve = resolve;
       this.tapReady = false;
+      this.tapCount = 0;
     });
   }
 
@@ -1706,10 +2001,22 @@ class DialogueSystem {
 
     if (this.lines.length > 0) {
       if (this.quizFeedbackTimer > 0) return true;
+      // Skip button (bottom-right of dialogue box): x 228..298, y 168..180
+      if (this.tapCount >= 1 && x >= 228 && x <= 298 && y >= 168 && y <= 180) {
+        this.lines = [];
+        this.lineIndex = 0;
+        this.tapCount = 0;
+        const r = this.resolve;
+        this.resolve = null;
+        if (r) r();
+        return true;
+      }
+      this.tapCount++;
       this.lineIndex++;
       if (this.lineIndex >= this.lines.length) {
         this.lines = [];
         this.lineIndex = 0;
+        this.tapCount = 0;
         const r = this.resolve;
         this.resolve = null;
         if (r) r();
@@ -1758,8 +2065,13 @@ class DialogueSystem {
           if (this.quizData.flag) this.game.state.setFlag(this.quizData.flag, true);
           if (this.quizData.id) this.game.state.setFlag(`answered_${this.quizData.id}`, true);
           this.quizFeedback = { correct: true, msg: `+${pts} points! Well done!` };
+          if (navigator.vibrate) navigator.vibrate(50);
+          sound.correct();
+          this.game._saveState();
         } else {
           this.quizFeedback = { correct: false, msg: this.quizData.hint };
+          if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+          sound.wrong();
         }
         break;
       }
@@ -1799,6 +2111,14 @@ class DialogueSystem {
     ctx.font = '7px sans-serif';
     ctx.textAlign = 'right';
     ctx.fillText('Tap to continue ▶', bx + bw - 6, by + bh - 5);
+    // Skip button (appears after first tap)
+    if (this.tapCount >= 1) {
+      roundRect(ctx, 228, 168, 70, 12, 2, 'rgba(0,30,0,0.85)', PALETTE.popupBorder);
+      ctx.fillStyle = PALETTE.grassGreen;
+      ctx.font = '6px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Skip \u25b6\u25b6', 263, 177);
+    }
     ctx.textAlign = 'left';
   }
 
@@ -1847,10 +2167,10 @@ class DialogueSystem {
       wrapText(ctx, this.quizData.options[i], bx + 24, by + 12, bw - 30, 10);
     }
 
-    // Feedback modal panel (overlays bottom options when answer is given)
+    // Feedback modal panel (covers all options to make state clear)
     if (this.quizFeedback) {
       const correct = this.quizFeedback.correct;
-      const panelX = 10, panelY = 142, panelW = 300, panelH = 88;
+      const panelX = 10, panelY = 88, panelW = 300, panelH = 142;
       roundRect(ctx, panelX, panelY, panelW, panelH, 6,
         correct ? 'rgba(0,40,0,0.97)' : 'rgba(40,0,0,0.97)',
         correct ? '#00cc44' : '#cc4444');
@@ -1859,13 +2179,13 @@ class DialogueSystem {
       ctx.fillStyle = correct ? '#00ff88' : '#ff8888';
       ctx.font = 'bold 10px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(correct ? '\u2713  Correct!' : '\u2717  Not quite!', W / 2, panelY + 14);
+      ctx.fillText(correct ? '\u2713  Correct!' : '\u2717  Not quite!', W / 2, panelY + 20);
 
       // Message text (score or hint)
       ctx.fillStyle = PALETTE.white;
       ctx.font = '8px sans-serif';
       ctx.textAlign = 'center';
-      wrapText(ctx, this.quizFeedback.msg, W / 2, panelY + 28, 280, 10);
+      wrapText(ctx, this.quizFeedback.msg, W / 2, panelY + 40, 280, 12);
 
       // OK / Try Again button
       const btn = DialogueSystem.FEEDBACK_BTN;
@@ -1886,12 +2206,13 @@ class DialogueSystem {
 // SECTION 8: UI SYSTEM
 // ═══════════════════════════════════════════════════════════════════
 
-const ITEM_IDS = ['shamrock_bouquet', 'parade_banner', 'horseshoe', 'green_bulb'];
+const ITEM_IDS = ['shamrock_bouquet', 'parade_banner', 'horseshoe', 'green_bulb', 'race_bib'];
 const ITEM_NAMES = {
   shamrock_bouquet: 'Shamrock Bouquet',
   parade_banner: 'Parade Banner',
   horseshoe: 'Lucky Horseshoe',
   green_bulb: 'Green Light Bulb',
+  race_bib: 'Race Bib',
 };
 
 class UISystem {
@@ -1908,6 +2229,7 @@ class UISystem {
     let px = Math.min(x, W - bw - 4);
     let py = Math.max(4, Math.min(y - bh / 2, VIEWPORT_H - bh - 4));
     this.popup = { x: px, y: py, target, verbs };
+    sound.click();
   }
 
   closePopup() { this.popup = null; }
@@ -1932,7 +2254,7 @@ class UISystem {
 
   handleInventoryTap(x, y) {
     if (y < INVENTORY_Y) return false;
-    const slotW = W / 4;
+    const slotW = W / ITEM_IDS.length;
     for (let i = 0; i < ITEM_IDS.length; i++) {
       const itemId = ITEM_IDS[i];
       if (!this.game.inventory.has(itemId)) continue;
@@ -1964,7 +2286,7 @@ class UISystem {
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(0, INVENTORY_Y); ctx.lineTo(W, INVENTORY_Y); ctx.stroke();
 
-    const slotW = W / 4;
+    const slotW = W / ITEM_IDS.length;
     for (let i = 0; i < ITEM_IDS.length; i++) {
       const itemId = ITEM_IDS[i];
       const has = this.game.inventory.has(itemId);
@@ -1982,13 +2304,10 @@ class UISystem {
       if (has) {
         drawItemIcon(ctx, sx + slotW / 2, INVENTORY_Y + INVENTORY_H / 2, itemId);
       } else {
-        // Empty slot marker
-        ctx.strokeStyle = '#224422';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(sx + slotW / 2 - 10, INVENTORY_Y + 12, 20, 20);
-        ctx.strokeStyle = '#224422';
-        ctx.beginPath(); ctx.moveTo(sx + slotW / 2 - 6, INVENTORY_Y + 22);
-        ctx.lineTo(sx + slotW / 2 + 6, INVENTORY_Y + 22); ctx.stroke();
+        // Ghost icon at 25% opacity
+        ctx.globalAlpha = 0.25;
+        drawItemIcon(ctx, sx + slotW / 2, INVENTORY_Y + INVENTORY_H / 2, itemId);
+        ctx.globalAlpha = 1.0;
       }
       // Slot divider
       if (i > 0) {
@@ -2025,18 +2344,39 @@ class UISystem {
 
   _renderHUD(ctx) {
     const coinsFound = LUCKY_COINS.filter(c => this.game.state.getFlag(c.id)).length;
-    const hudW = 130;
+    const hudW = 185;
     ctx.fillStyle = 'rgba(0,20,0,0.75)';
-    ctx.fillRect(W - hudW - 2, 2, hudW, 14);
+    ctx.fillRect(W - hudW - 2, 2, hudW, 24);
     ctx.strokeStyle = PALETTE.popupBorder; ctx.lineWidth = 1;
-    ctx.strokeRect(W - hudW - 2, 2, hudW, 14);
+    ctx.strokeRect(W - hudW - 2, 2, hudW, 24);
+    // Score row
     drawShamrock(ctx, W - hudW + 4, 10, 4, PALETTE.emerald);
     ctx.fillStyle = PALETTE.gold;
     ctx.font = 'bold 7px sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText(`Score: ${this.game.state.score}`, W - hudW + 14, 12);
     ctx.fillStyle = '#ffd700';
-    ctx.fillText(`\u{1FA99}${coinsFound}/5`, W - 58, 12);
+    ctx.fillText(`\u{1FA99}${coinsFound}/6`, W - 44, 12);
+    // Progress dots row: has_bib, has_shamrock, has_banner, has_horseshoe, has_bulb
+    const dotFlags = ['has_shamrock', 'has_bib', 'has_banner', 'has_horseshoe', 'has_bulb'];
+    const dotLabels = ['PUB', 'RACE', 'CAT', 'STM', 'LAC'];
+    const dotStartX = W - hudW + 6;
+    for (let di = 0; di < 5; di++) {
+      const dx = dotStartX + di * 33;
+      const collected = this.game.state.getFlag(dotFlags[di]);
+      ctx.beginPath();
+      ctx.arc(dx, 20, 3, 0, Math.PI * 2);
+      ctx.fillStyle = collected ? PALETTE.gold : '#223322';
+      ctx.fill();
+      ctx.strokeStyle = collected ? PALETTE.gold : '#446644';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+      ctx.fillStyle = collected ? PALETTE.gold : '#446644';
+      ctx.font = '5px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(dotLabels[di], dx, 27);
+    }
+    ctx.textAlign = 'left';
   }
 }
 
@@ -2054,8 +2394,9 @@ class Game {
     this.dialogue = new DialogueSystem(this);
     this.ui = new UISystem(this);
 
-    this.mode = 'title'; // 'title', 'help', 'difficulty', 'play', 'dialogue', 'transition', 'win'
+    this.mode = 'title'; // 'title', 'help', 'difficulty', 'play', 'dialogue', 'transition', 'win', 'resume'
     this.helpPage = 0;
+    this._helpReturnMode = 'title';
     this.difficulty = 2;       // 1=easy, 2=medium, 3=hard
     this.scoreMultiplier = 1;  // 1, 1.5, or 2
     this.sessionQuestions = {};
@@ -2104,6 +2445,9 @@ class Game {
 
     // Float decoration state
     this.floatDecorated = false;
+
+    // Resume modal state
+    this.resumeData = null;
   }
 
   start() {
@@ -2126,6 +2470,7 @@ class Game {
       this.animTimer += dt;
       const tap = this.input.consumeTap();
       if (tap) {
+        sound.click();
         // How to Play button area
         if (tap.x >= 90 && tap.x <= 230 && tap.y >= 174 && tap.y <= 192) {
           this.helpPage = 0;
@@ -2143,15 +2488,18 @@ class Game {
       if (tap) {
         // Easy button: y 90..120
         if (tap.y >= 90 && tap.y <= 120) {
-          this.difficulty = 1; this.scoreMultiplier = 1; this.startGame();
+          this.difficulty = 1; this.scoreMultiplier = 1;
+          Storage.save('difficulty', 1); sound.click(); this._checkResume();
         }
         // Medium button: y 128..158
         else if (tap.y >= 128 && tap.y <= 158) {
-          this.difficulty = 2; this.scoreMultiplier = 1.5; this.startGame();
+          this.difficulty = 2; this.scoreMultiplier = 1.5;
+          Storage.save('difficulty', 2); sound.click(); this._checkResume();
         }
         // Hard button: y 166..196
         else if (tap.y >= 166 && tap.y <= 196) {
-          this.difficulty = 3; this.scoreMultiplier = 2; this.startGame();
+          this.difficulty = 3; this.scoreMultiplier = 2;
+          Storage.save('difficulty', 3); sound.click(); this._checkResume();
         }
         // Back button
         else if (tap.x >= 15 && tap.x <= 70 && tap.y >= H - 30 && tap.y <= H - 12) {
@@ -2167,13 +2515,30 @@ class Game {
       if (tap) {
         // Back button: x 15..70, y H-30..H-12
         if (tap.x >= 15 && tap.x <= 70 && tap.y >= H - 30 && tap.y <= H - 12) {
-          if (this.helpPage === 0) { this.mode = 'title'; }
+          if (this.helpPage === 0) { this.mode = this._helpReturnMode; }
           else { this.helpPage--; }
         }
         // Next/Done button: x W-70..W-15, y H-30..H-12
         else if (tap.x >= W - 70 && tap.x <= W - 15 && tap.y >= H - 30 && tap.y <= H - 12) {
-          if (this.helpPage >= 1) { this.mode = 'title'; }
+          if (this.helpPage >= 1) { this.mode = this._helpReturnMode; }
           else { this.helpPage++; }
+        }
+      }
+      return;
+    }
+
+    if (this.mode === 'resume') {
+      const tap = this.input.consumeTap();
+      if (tap) {
+        // Resume button: left half
+        if (tap.x < W / 2) {
+          this._restoreState(this.resumeData);
+          this.resumeData = null;
+        } else {
+          // New game: right half
+          this.resumeData = null;
+          Storage.clear('gamestate');
+          this.startGame();
         }
       }
       return;
@@ -2190,11 +2555,22 @@ class Game {
         if (c.y > H + 10) { c.y = -10; c.x = Math.random() * W; c.vy = 40 + Math.random() * 60; }
       }
       const tap = this.input.consumeTap();
-      if (tap && this.winTimer > 2) {
-        this.mode = 'title';
-        this.state.reset();
-        this.inventory.clear();
-        this.bgCache = null;
+      if (tap) {
+        // Share button area (y 148..164): share score
+        if (tap.y >= 148 && tap.y <= 164 && navigator.share) {
+          const diffLabel = ['', 'Easy', 'Medium', 'Hard'][this.difficulty] || '';
+          navigator.share({
+            title: "Paddy's Parade Day Adventure",
+            text: `I scored ${this.state.score} pts on ${diffLabel}! Erin Go Bragh! 🍀`,
+            url: 'https://paddy-parade.vercel.app'
+          }).catch(() => {});
+        } else if (this.winTimer > 2) {
+          this.mode = 'title';
+          this.state.reset();
+          this.inventory.clear();
+          this.bgCache = null;
+          Storage.clear('gamestate');
+        }
       }
       return;
     }
@@ -2273,6 +2649,14 @@ class Game {
   }
 
   _handlePlayTap(x, y) {
+    // 0. In-game help button (top-left "?" box, x=2..14, y=1..12)
+    if (x >= 2 && x <= 14 && y >= 1 && y <= 12) {
+      this._helpReturnMode = 'play';
+      this.helpPage = 0;
+      this.mode = 'help';
+      return true;
+    }
+
     // 1. Inventory bar?
     if (y >= INVENTORY_Y) {
       return this.ui.handleInventoryTap(x, y);
@@ -2369,6 +2753,7 @@ class Game {
     this.state.addScore(5);
     this.paddyCelebrate = true;
     this.celebrateTimer = 1.2;
+    sound.coin();
     // Show dialogue box with fun fact
     const scene = this.currentScene;
     const npc = scene && scene.npcs[0];
@@ -2389,6 +2774,19 @@ class Game {
   _renderPickupItems(ctx) {
     const s = this.sceneId;
     if (!s) return;
+    if (s === 'footrace' && !this.state.getFlag('has_bib')) {
+      // Race bib #1 on the registration table
+      ctx.fillStyle = PALETTE.white;
+      ctx.fillRect(10, 132, 14, 16);
+      ctx.fillStyle = PALETTE.emerald;
+      ctx.font = 'bold 8px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('1', 17, 143);
+      ctx.textAlign = 'left';
+      // Pin marks
+      ctx.fillStyle = '#888';
+      ctx.beginPath(); ctx.arc(11, 133, 1, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(23, 133, 1, 0, Math.PI * 2); ctx.fill();
+    }
     if (s === 'pub' && !this.state.getFlag('has_shamrock')) {
       ctx.fillStyle = PALETTE.wood;
       ctx.fillRect(148, 122, 44, 6); ctx.fillRect(155, 128, 5, 12); ctx.fillRect(183, 128, 5, 12);
@@ -2415,10 +2813,10 @@ class Game {
     }
     // Float decoration: draw item icons on float surface when decorated
     if (s === 'parade' && this.floatDecorated) {
-      const items = ['shamrock_bouquet', 'parade_banner', 'horseshoe', 'green_bulb'];
+      const items = ['shamrock_bouquet', 'parade_banner', 'horseshoe', 'green_bulb', 'race_bib'];
       const floatIconY = 122;
       items.forEach((itemId, i) => {
-        const ix = 148 + i * 22;
+        const ix = 140 + i * 18;
         ctx.save();
         ctx.translate(ix, floatIconY);
         ctx.scale(0.55, 0.55);
@@ -2499,7 +2897,7 @@ class Game {
     ctx.lineWidth = 1;
     for (const hs of scene.hotspots) {
       const hovered = hoverInBounds && rectContains(hs.rect, x, y);
-      ctx.strokeStyle = hovered ? 'rgba(0,255,100,0.55)' : 'rgba(0,255,100,0.15)';
+      ctx.strokeStyle = hovered ? 'rgba(0,255,100,0.55)' : 'rgba(0,0,0,0)';
       ctx.strokeRect(hs.rect.x + 0.5, hs.rect.y + 0.5, hs.rect.w - 1, hs.rect.h - 1);
     }
     for (const npc of scene.npcs) {
@@ -2581,7 +2979,12 @@ class Game {
     await this.dialogue.run(npc.dialogueId, npc.type, this._npcDisplayName(npc.type));
     if (!this.dialogue.active) {
       this.mode = this.state.getFlag('parade_started') ? 'win' : 'play';
-      if (this.state.getFlag('parade_started')) this._triggerWin();
+      if (this.state.getFlag('parade_started')) {
+        this._triggerWin();
+      } else if (npc.dialogueId === 'siobhan' && !this.state.getFlag('shownInteractHint')) {
+        this.state.setFlag('shownInteractHint', true);
+        this.showMessage('Tap any object to interact!');
+      }
     }
   }
 
@@ -2602,13 +3005,14 @@ class Game {
         // Warn if the scene's key item hasn't been collected yet
         const itemWarnings = {
           pub:        { flag: 'has_shamrock',  npc: 'Siobhan',          item: 'Shamrock Bouquet' },
+          footrace:   { flag: 'has_bib',       npc: 'Race Director',    item: 'Race Bib' },
           cathedral:  { flag: 'has_banner',    npc: 'Father Callahan',  item: 'Parade Banner' },
           steamtown:  { flag: 'has_horseshoe', npc: 'Old Seamus',       item: 'Lucky Horseshoe' },
           lackawanna: { flag: 'has_bulb',      npc: 'Maggie',           item: 'Green Light Bulb' },
         };
         const warn = itemWarnings[this.sceneId];
         if (warn && !this.state.getFlag(warn.flag)) {
-          const quizFlag = { pub: 'quiz_pub_done', cathedral: 'quiz_cathedral_done', steamtown: 'quiz_steamtown_done', lackawanna: 'quiz_lackawanna_done' }[this.sceneId];
+          const quizFlag = { pub: 'quiz_pub_done', footrace: 'quiz_footrace_done', cathedral: 'quiz_cathedral_done', steamtown: 'quiz_steamtown_done', lackawanna: 'quiz_lackawanna_done' }[this.sceneId];
           if (!this.state.getFlag(quizFlag)) {
             this.showMessage(`Wait — talk to ${warn.npc} first! They have the ${warn.item} for the parade.`);
           } else {
@@ -2654,6 +3058,8 @@ class Game {
           this.showMessage('Paddy picks up the ' + ITEM_NAMES[target.item] + '!');
           this.paddyCelebrate = true;
           this.celebrateTimer = 1.5;
+          sound.pickup();
+          this._saveState();
         });
       }
       return;
@@ -2681,10 +3087,10 @@ class Game {
         });
       } else if (target.id === 'float' && this.sceneId === 'parade') {
         if (this.inventory.size === 0) {
-          this.showMessage("The float needs decorating! Collect all four items and bring them here.");
+          this.showMessage("The float needs decorating! Collect all five items and bring them here.");
         } else {
           this._walkThenDo(170, 140, () => {
-            const missing = ['shamrock_bouquet','parade_banner','horseshoe','green_bulb']
+            const missing = ['shamrock_bouquet','parade_banner','horseshoe','green_bulb','race_bib']
               .filter(i => !this.inventory.has(i)).map(i => ITEM_NAMES[i]);
             if (missing.length === 0) {
               this.floatDecorated = true;
@@ -2702,13 +3108,13 @@ class Game {
 
   _useItemOnHotspot(itemId, hotspot) {
     if (hotspot.id === 'float' && this.sceneId === 'parade') {
-      const hasAll = ['shamrock_bouquet','parade_banner','horseshoe','green_bulb']
+      const hasAll = ['shamrock_bouquet','parade_banner','horseshoe','green_bulb','race_bib']
         .every(i => this.inventory.has(i));
       if (hasAll) {
         this.floatDecorated = true;
         this.showMessage("All items are on the float! Now talk to Grand Marshal O'Brien to start the parade!");
       } else {
-        const missing = ['shamrock_bouquet','parade_banner','horseshoe','green_bulb']
+        const missing = ['shamrock_bouquet','parade_banner','horseshoe','green_bulb','race_bib']
           .filter(i => !this.inventory.has(i))
           .map(i => ITEM_NAMES[i]).join(', ');
         this.showMessage('Still missing: ' + missing);
@@ -2725,6 +3131,7 @@ class Game {
 
   async loadScene(sceneId) {
     this.mode = 'transition';
+    sound.door();
     await this.fadeOut();
     this.sceneId = sceneId;
     this.currentScene = SCENES[sceneId];
@@ -2739,6 +3146,7 @@ class Game {
     this.messageTimer = 0;
     this.ui.closePopup();
     this.ui.usingItem = null;
+    this._saveState();
     await this.fadeIn();
     this.mode = 'play';
   }
@@ -2771,6 +3179,9 @@ class Game {
   _triggerWin() {
     this.mode = 'win';
     this.winTimer = 0;
+    const score = this.state.score;
+    if (score > Storage.load('highscore', 0)) Storage.save('highscore', score);
+    Storage.clear('gamestate');
     // Spawn confetti
     this.confetti = [];
     for (let i = 0; i < 60; i++) {
@@ -2788,6 +3199,41 @@ class Game {
     }
   }
 
+  _checkResume() {
+    const saved = Storage.load('gamestate', null);
+    if (saved && !saved.flags.parade_started) {
+      this.resumeData = saved;
+      this.mode = 'resume';
+    } else {
+      Storage.clear('gamestate');
+      this.startGame();
+    }
+  }
+
+  _saveState() {
+    Storage.save('gamestate', {
+      sceneId: this.sceneId,
+      flags: { ...this.state.flags },
+      inventory: [...this.inventory],
+      score: this.state.score,
+      difficulty: this.difficulty,
+    });
+  }
+
+  _restoreState(saved) {
+    this.difficulty = saved.difficulty || 2;
+    this.scoreMultiplier = [1, 1, 1.5, 2][this.difficulty] || 1;
+    this.state.flags = { ...saved.flags };
+    this.state.score = saved.score || 0;
+    this.inventory = new Set(saved.inventory || []);
+    this.bgCache = null;
+    this.cartOffset = 0;
+    this.cartPushTimer = 0;
+    this.floatDecorated = false;
+    this._cacheSessionQuestions();
+    this.loadScene(saved.sceneId || 'pub');
+  }
+
   startGame() {
     this.state.reset();
     this.inventory.clear();
@@ -2802,7 +3248,7 @@ class Game {
   _cacheSessionQuestions() {
     this.sessionQuestions = {};
     this.sessionQuestionPtrs = {};
-    const scenes = ['pub', 'cathedral', 'steamtown', 'lackawanna', 'parade'];
+    const scenes = ['pub', 'footrace', 'cathedral', 'steamtown', 'lackawanna', 'parade'];
     for (const scene of scenes) {
       const pool = QUESTION_BANK.filter(q => q.scene === scene && q.difficulty <= this.difficulty);
       const shuffled = [...pool].sort(() => Math.random() - 0.5);
@@ -2817,6 +3263,11 @@ class Game {
 
     if (this.mode === 'title') {
       this._renderTitle(ctx);
+      return;
+    }
+
+    if (this.mode === 'resume') {
+      this._renderResumeModal(ctx);
       return;
     }
 
@@ -2868,12 +3319,12 @@ class Game {
             draw: () => drawNPC(ctx, npc.x, npc.y, npc.type, this.paddyAnimFrame, facing)
           };
         }),
-        { y: this.paddyY, draw: () => drawPaddy(ctx, this.paddyX, this.paddyY, this.paddyDir, this.paddyAnimFrame, this.paddyCelebrate) }
+        { y: this.paddyY, draw: () => drawPaddy(ctx, this.paddyX, this.paddyY, this.paddyDir, this.paddyWalking ? this.paddyAnimFrame : 0, this.paddyCelebrate) }
       ];
       entities.sort((a, b) => a.y - b.y);
       entities.forEach(e => e.draw());
     } else {
-      drawPaddy(ctx, this.paddyX, this.paddyY, this.paddyDir, this.paddyAnimFrame, this.paddyCelebrate);
+      drawPaddy(ctx, this.paddyX, this.paddyY, this.paddyDir, this.paddyWalking ? this.paddyAnimFrame : 0, this.paddyCelebrate);
     }
 
     // Walk target indicator
@@ -2903,7 +3354,15 @@ class Game {
       ctx.fillStyle = hoverLabel ? PALETTE.white : PALETTE.gold;
       ctx.font = '7px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(hoverLabel || this.currentScene.name, W / 2, 9);
+      const labelAreaW = W - 130 - 8;
+      ctx.fillText(hoverLabel || this.currentScene.name, labelAreaW / 2, 9, labelAreaW);
+      ctx.textAlign = 'left';
+      // In-game help button "?" top-left
+      roundRect(ctx, 2, 1, 12, 11, 2, PALETTE.darkGreen, PALETTE.popupBorder);
+      ctx.fillStyle = PALETTE.white;
+      ctx.font = 'bold 8px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('?', 8, 9);
       ctx.textAlign = 'left';
     }
 
@@ -2931,7 +3390,8 @@ class Game {
     if (!this.sceneId) return;
     // Each entry: flag that must be set, sign position (just right of exit hotspot), label
     const defs = {
-      pub:        { flag: 'has_shamrock',  x: 22, y: 133, label: "St. Peter's" },
+      pub:        { flag: 'has_shamrock',  x: 22, y: 133, label: 'Footrace'    },
+      footrace:   { flag: 'has_bib',       x: 22, y: 133, label: "St. Peter's" },
       cathedral:  { flag: 'has_banner',    x: 52, y: 158, label: 'Steamtown'   },
       steamtown:  { flag: 'has_horseshoe', x: 82, y: 140, label: 'Elec. City'  },
       lackawanna: { flag: 'has_bulb',      x: 42, y: 155, label: 'Parade!'     },
@@ -2983,6 +3443,32 @@ class Game {
     ctx.textAlign = 'left';
   }
 
+  _renderResumeModal(ctx) {
+    ctx.fillStyle = '#020e02';
+    ctx.fillRect(0, 0, W, H);
+    roundRect(ctx, 30, 70, 260, 110, 8, 'rgba(0,40,0,0.97)', PALETTE.gold);
+    ctx.fillStyle = PALETTE.gold;
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('☘  Saved Game Found  ☘', W / 2, 92);
+    const d = this.resumeData;
+    const diffLabel = ['', 'Easy', 'Medium', 'Hard'][d.difficulty] || '';
+    ctx.fillStyle = PALETTE.white;
+    ctx.font = '8px sans-serif';
+    ctx.fillText(`Scene: ${(d.sceneId || 'pub').replace(/_/g,' ')}`, W / 2, 110);
+    ctx.fillText(`Score: ${d.score || 0} pts  •  ${diffLabel}`, W / 2, 122);
+    // Resume button (left)
+    roundRect(ctx, 40, 140, 100, 28, 5, '#004422', PALETTE.popupBorder);
+    ctx.fillStyle = PALETTE.white;
+    ctx.font = 'bold 9px sans-serif';
+    ctx.fillText('Resume ▶', 90, 158);
+    // New Game button (right)
+    roundRect(ctx, 180, 140, 100, 28, 5, '#440022', PALETTE.popupBorder);
+    ctx.fillStyle = PALETTE.white;
+    ctx.fillText('New Game', 230, 158);
+    ctx.textAlign = 'left';
+  }
+
   _renderTitle(ctx) {
     // Dark green background
     ctx.fillStyle = '#020e02';
@@ -3024,10 +3510,18 @@ class Game {
     ctx.font = '7px sans-serif';
     ctx.fillText('☘ How to Play', W / 2, 185);
 
+    // High score
+    const hs = Storage.load('highscore', 0);
+    if (hs > 0) {
+      ctx.fillStyle = PALETTE.gold;
+      ctx.font = 'bold 7px sans-serif';
+      ctx.fillText(`Best: ${hs} pts`, W / 2, 198);
+    }
+
     // Credits
     ctx.fillStyle = PALETTE.grassGreen;
     ctx.font = '6px sans-serif';
-    ctx.fillText('stpatparade.com  •  Erin Go Bragh!', W / 2, 200);
+    ctx.fillText('paddy-parade.vercel.app  •  Erin Go Bragh!', W / 2, 210);
 
     ctx.textAlign = 'left';
   }
@@ -3052,13 +3546,15 @@ class Game {
     ctx.font = '7px sans-serif';
     ctx.fillText('More difficulty = more points per quiz answer!', W / 2, 40);
 
+    const savedDiff = Storage.load('difficulty', 0);
     const buttons = [
       { label: '🍀  EASY',   sub: 'Beginner-friendly questions • Score ×1',   y: 90,  diff: 1, fill: '#004422' },
       { label: '☘  MEDIUM', sub: 'Some Irish knowledge helps • Score ×1.5',  y: 128, diff: 2, fill: '#003322' },
       { label: '🎩  HARD',   sub: 'True Irish-Scranton historian! • Score ×2', y: 166, diff: 3, fill: '#220044' },
     ];
     for (const btn of buttons) {
-      roundRect(ctx, 30, btn.y, 260, 30, 6, btn.fill, PALETTE.popupBorder);
+      const isLast = savedDiff === btn.diff;
+      roundRect(ctx, 30, btn.y, 260, 30, 6, btn.fill, isLast ? PALETTE.gold : PALETTE.popupBorder);
       ctx.fillStyle = PALETTE.gold;
       ctx.font = 'bold 9px sans-serif';
       ctx.textAlign = 'center';
@@ -3066,6 +3562,13 @@ class Game {
       ctx.fillStyle = PALETTE.lightGrey;
       ctx.font = '7px sans-serif';
       ctx.fillText(btn.sub, W / 2, btn.y + 24);
+      if (isLast) {
+        ctx.fillStyle = PALETTE.gold;
+        ctx.font = 'bold 9px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('▶', 36, btn.y + 16);
+        ctx.textAlign = 'center';
+      }
     }
 
     // Back button
@@ -3120,31 +3623,33 @@ class Game {
       ctx.fillStyle = PALETTE.gold;
       ctx.font = 'bold 8px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('Your quest: Find 4 items before noon!', W / 2, 48);
+      ctx.fillText('Your quest: Find 5 items before noon!', W / 2, 48);
       const items = [
-        { icon: 'shamrock_bouquet', name: 'Shamrock Bouquet',  where: "Paddy's Pub" },
-        { icon: 'parade_banner',    name: 'Parade Banner',     where: "St. Peter's Cathedral" },
-        { icon: 'horseshoe',        name: 'Lucky Horseshoe',   where: 'Steamtown NHS' },
-        { icon: 'green_bulb',       name: 'Green Light Bulb',  where: 'Lackawanna Ave' },
+        { icon: 'shamrock_bouquet', name: 'Shamrock Bouquet',  where: "Paddy's Pub",          flag: 'has_shamrock' },
+        { icon: 'race_bib',         name: 'Race Bib',          where: 'Kelly Footrace',        flag: 'has_bib' },
+        { icon: 'parade_banner',    name: 'Parade Banner',     where: "St. Peter's Cathedral", flag: 'has_banner' },
+        { icon: 'horseshoe',        name: 'Lucky Horseshoe',   where: 'Steamtown NHS',         flag: 'has_horseshoe' },
+        { icon: 'green_bulb',       name: 'Green Light Bulb',  where: 'Lackawanna Ave',        flag: 'has_bulb' },
       ];
-      items.forEach(({ icon, name, where }, i) => {
-        const iy = 62 + i * 28;
-        roundRect(ctx, 15, iy, 290, 24, 4, 'rgba(0,25,0,0.7)', '#224422');
+      items.forEach(({ icon, name, where, flag }, i) => {
+        const iy = 58 + i * 24;
+        const done = this.state.getFlag(flag);
+        roundRect(ctx, 15, iy, 290, 24, 4, done ? 'rgba(0,40,0,0.8)' : 'rgba(0,25,0,0.7)', done ? PALETTE.gold : '#224422');
         drawItemIcon(ctx, 30, iy + 12, icon);
-        ctx.fillStyle = PALETTE.white;
+        ctx.fillStyle = done ? PALETTE.gold : PALETTE.white;
         ctx.font = 'bold 7px sans-serif';
         ctx.textAlign = 'left';
         ctx.fillText(name, 46, iy + 9);
-        ctx.fillStyle = PALETTE.grassGreen;
+        ctx.fillStyle = done ? PALETTE.gold : PALETTE.grassGreen;
         ctx.font = '6px sans-serif';
-        ctx.fillText('📍 ' + where, 46, iy + 19);
+        ctx.fillText((done ? '☑ Collected!' : '☐ ') + (done ? '' : '📍 ' + where), 46, iy + 19);
       });
       // Bonus tips
-      roundRect(ctx, 15, 178, 290, 14, 3, 'rgba(0,30,0,0.8)', PALETTE.gold);
+      roundRect(ctx, 15, 182, 290, 14, 3, 'rgba(0,30,0,0.8)', PALETTE.gold);
       ctx.fillStyle = PALETTE.gold;
       ctx.font = '7px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('🪙 5 hidden Lucky Coins (+5 pts each)   📚 10 quiz questions (+10 pts each)', W / 2, 188);
+      ctx.fillText('🪙 6 hidden Lucky Coins (+5 pts each)   📚 12 quiz questions (+10 pts each)', W / 2, 192);
     }
 
     // Navigation buttons
@@ -3157,7 +3662,7 @@ class Game {
     ctx.fillStyle = PALETTE.white;
     ctx.fillText(this.helpPage === 1 ? '✓ Done' : 'Next →', W - 42, H - 18);
 
-    ctx.fillStyle = PALETTE.grassGreen;
+    ctx.fillStyle = PALETTE.white;
     ctx.font = '6px sans-serif';
     ctx.fillText(`Page ${this.helpPage + 1} / 2`, W / 2, H - 18);
     ctx.textAlign = 'left';
@@ -3209,12 +3714,20 @@ class Game {
     ctx.font = '7px sans-serif';
     ctx.fillText('ERIN GO BRAGH!', W / 2, 128);
 
+    // Share button (if Web Share API available)
+    if (navigator.share) {
+      roundRect(ctx, 100, 135, 120, 18, 4, '#004433', PALETTE.popupBorder);
+      ctx.fillStyle = PALETTE.white;
+      ctx.font = 'bold 7px sans-serif';
+      ctx.fillText('Share Score \u2197', W / 2, 147);
+    }
+
     // Inventory bar area — show collected items
     ctx.fillStyle = '#0a2a0a';
     ctx.fillRect(0, INVENTORY_Y, W, INVENTORY_H);
     ctx.strokeStyle = PALETTE.gold; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(0, INVENTORY_Y); ctx.lineTo(W, INVENTORY_Y); ctx.stroke();
-    const slotW = W / 4;
+    const slotW = W / ITEM_IDS.length;
     for (let i = 0; i < ITEM_IDS.length; i++) {
       drawItemIcon(ctx, i * slotW + slotW / 2, INVENTORY_Y + INVENTORY_H / 2, ITEM_IDS[i]);
     }
@@ -3224,7 +3737,7 @@ class Game {
     ctx.fillRect(0, 220, W, 20);
     ctx.fillStyle = PALETTE.grassGreen;
     ctx.font = '6px sans-serif';
-    ctx.fillText('Happy St. Patrick\'s Day from stpatparade.com  •  Tap to play again', W / 2, 231);
+    ctx.fillText('Happy St. Patrick\'s Day from paddy-parade.vercel.app  •  Tap to play again', W / 2, 231);
 
     ctx.textAlign = 'left';
   }

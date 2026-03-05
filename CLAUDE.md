@@ -3,9 +3,10 @@
 Single-file HTML5 canvas game set during the Scranton, PA St. Patrick's Day Parade.
 
 ## Key Files
-- `paddy-parade.html` — entire game (HTML + CSS + JS, ~3150 lines)
-- `paddy-parade-creator.html` — hotspot visualizer/debugging tool (new, Phase 3)
+- `paddy-parade.html` — entire game (HTML + CSS + JS, ~3350 lines)
+- `paddy-parade-creator.html` — hotspot visualizer/debugging tool
 - `paddy-parade-docs.html` — developer reference (standalone HTML)
+- `validate_scenes.py` — dev-only Python validation tool (requires Node.js)
 - `CLAUDE.md` — this file
 
 ## Tech Constraints
@@ -19,12 +20,28 @@ Single-file HTML5 canvas game set during the Scranton, PA St. Patrick's Day Para
 2. GameState class (flags, score)
 3. Input class (pointer events → logical coords)
 4. Sprite Helpers (`drawPaddy`, `drawNPC`, `drawShamrock`, `drawItemIcon`, `roundRect`, `wrapText`)
-5. Scene Backgrounds (5 × `drawBg*` functions, all cached in `bgCache`)
+5. Scene Backgrounds (6 × `drawBg*` functions, all cached in `bgCache`)
 6. Scene Definitions (`SCENES` object)
 7. Dialogue System (`DIALOGUES` trees + `DialogueSystem` class)
 8. UI System (`UISystem`: inventory, popups, HUD)
 9. Game Engine (`Game` class: loop, walk, transitions, coins, help screen, difficulty)
 10. Boot (`window.onload`)
+
+## Phase 4 Additions — Footrace Scene
+- **Scene flow**: pub → **footrace** → cathedral → steamtown → lackawanna → parade
+- **New scene**: `footrace` — Brian P. Kelly Memorial Footrace (10:00 AM on Parade Day)
+  - NPC: `race_director` (reflective vest + whistle + clipboard)
+  - Item: `race_bib` (green bib #1) — gated on `quiz_footrace_done`
+  - Exit: `exit_cathedral` → `cathedral`
+  - Lucky Coin at x=280, y=155
+- **5th inventory slot** — inventory slotW changed from `W/4` to `W/ITEM_IDS.length`
+- **HUD dots updated** — now 5 dots (PUB, RACE, CAT, STM, LAC), 33px apart from x=(W-hudW+6)
+- **QUESTION_BANK** — 6 new footrace questions (2 per difficulty, scene: 'footrace')
+- **Marshal** checks 5 items now: `has_shamrock`, `has_bib`, `has_banner`, `has_horseshoe`, `has_bulb`
+- **validate_scenes.py** — Python dev tool that uses Node.js to validate scene schema/cross-refs
+  - Run: `python validate_scenes.py` (all scenes) or `python validate_scenes.py footrace`
+  - `--template` flag prints copy-pasteable JS template for new scenes
+- **Pub exit sign** now points to 'Footrace' (was "St. Peter's")
 
 ## Phase 3 Additions (major upgrade)
 - **QUESTION_BANK** — 45 questions (15 per difficulty tier: easy/medium/hard)
@@ -43,14 +60,18 @@ Single-file HTML5 canvas game set during the Scranton, PA St. Patrick's Day Para
 - **Use float** — 'use' float → walks Paddy to float, lists missing items or confirms all set
 - **Creator tool** (`paddy-parade-creator.html`) — scene selector, 2× scaled canvas, color-coded hotspot overlays, overlap detection, hover tooltip
 - **Exit signs** (`_renderExitSigns`) — pulsing green directional signs appear near each exit after the scene's key item is collected
-  - Definitions: `{ pub→"St. Peter's", cathedral→"Steamtown", steamtown→"Elec. City", lackawanna→"Parade!" }`
-  - Gated on flags: `has_shamrock`, `has_banner`, `has_horseshoe`, `has_bulb`
+  - Definitions: `{ pub→"Footrace", footrace→"St. Peter's", cathedral→"Steamtown", steamtown→"Elec. City", lackawanna→"Parade!" }`
+  - Gated on flags: `has_shamrock`, `has_bib`, `has_banner`, `has_horseshoe`, `has_bulb`
 - **Exit warning** — `handleVerb 'go'` blocks departure if key item not yet collected
   - Two tiers: quiz not done → "talk to NPC first"; quiz done but item not taken → "don't forget item"
-- **Quiz feedback modal** — answering a quiz shows a modal panel (y=142, h=88) instead of timed text
+- **Quiz feedback modal** — answering a quiz shows a modal panel (y=88, h=142) covering all 4 options
   - "✓ Correct!" / "✗ Not quite!" header; hint or score message; "Continue ▶" / "Try Again ▶" button
   - Button coords from `DialogueSystem.FEEDBACK_BTN = { x: W/2-42, y: 216, w: 84, h: 14 }`
   - Correct: dismiss quiz entirely; Wrong: dismiss feedback only (player can retry)
+  - Panel covers entire option area (y=88..230) so player never sees partial option list during feedback
+- **In-game help button** — small "?" button at top-left (x=2..14, y=1..12) of scene label bar
+  - Tapping opens help screen; `_helpReturnMode` stores prior mode so "Close/Done" returns to play
+  - `this._helpReturnMode = 'play'` set on tap; help exit uses `this.mode = this._helpReturnMode`
 
 ## Common Gotchas
 - Background functions are **cached** (drawn once to offscreen canvas). Do NOT use `Math.random()` inside them.
@@ -79,4 +100,5 @@ To add questions to QUESTION_BANK: add object with `{ id, scene, difficulty, que
 ## Development
 Open `paddy-parade.html` directly in a browser (no server needed).
 Open `paddy-parade-creator.html` to visually inspect hotspot rects and detect overlaps.
+Run `python validate_scenes.py` to check all scene definitions for schema compliance.
 Test on mobile via Chrome DevTools → device mode → 375×667 (iPhone SE).
