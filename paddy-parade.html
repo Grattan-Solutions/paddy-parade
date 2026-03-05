@@ -3077,7 +3077,9 @@ class Game {
         this._walkThenDo(target.rect.x + target.rect.w / 2, target.rect.y + target.rect.h, () => {
           this.inventory.add(target.item);
           this.state.setFlag(target.flag || `has_${target.item}`, true);
-          this.showMessage('Paddy picks up the ' + ITEM_NAMES[target.item] + '!');
+          const nextLabel = { pub: 'Footrace', footrace: "St. Peter's", cathedral: 'Steamtown', steamtown: 'Elec. City', lackawanna: 'Parade!' }[this.sceneId];
+          const pickupMsg = 'Paddy picks up the ' + ITEM_NAMES[target.item] + '!' + (nextLabel ? ' \u2190 Head left to ' + nextLabel + '!' : '');
+          this.showMessage(pickupMsg);
           this.paddyCelebrate = true;
           this.celebrateTimer = 1.5;
           sound.pickup();
@@ -3410,45 +3412,44 @@ class Game {
 
   _renderExitSigns(ctx) {
     if (!this.sceneId) return;
-    // Each entry: flag that must be set, sign position (just right of exit hotspot), label
     const defs = {
-      pub:        { flag: 'has_shamrock',  x: 22, y: 133, label: 'Footrace'    },
-      footrace:   { flag: 'has_bib',       x: 22, y: 133, label: "St. Peter's" },
-      cathedral:  { flag: 'has_banner',    x: 52, y: 158, label: 'Steamtown'   },
-      steamtown:  { flag: 'has_horseshoe', x: 82, y: 140, label: 'Elec. City'  },
-      lackawanna: { flag: 'has_bulb',      x: 42, y: 155, label: 'Parade!'     },
+      pub:        { flag: 'has_shamrock',  y: 133, label: 'Footrace'    },
+      footrace:   { flag: 'has_bib',       y: 133, label: "St. Peter's" },
+      cathedral:  { flag: 'has_banner',    y: 158, label: 'Steamtown'   },
+      steamtown:  { flag: 'has_horseshoe', y: 140, label: 'Elec. City'  },
+      lackawanna: { flag: 'has_bulb',      y: 155, label: 'Parade!'     },
     };
     const def = defs[this.sceneId];
     if (!def || !this.state.getFlag(def.flag)) return;
 
     const t = this.animTimer;
-    const pulse = (Math.sin(t * 2.8) + 1) / 2; // 0..1
+    const pulse = (Math.sin(t * 2.8) + 1) / 2;
+    const bounce = Math.round(Math.sin(t * 5) * 2); // ±2px horizontal wiggle
 
     const fullLabel = '\u2190 ' + def.label;
-    ctx.font = 'bold 7px sans-serif';
+    ctx.font = 'bold 8px sans-serif';
     const tw = ctx.measureText(fullLabel).width;
-    const sw = tw + 10, sh = 14;
-    const sx = def.x, sy = def.y;
+    const sw = tw + 14, sh = 20;
+    const sx = 2 + bounce, sy = def.y - 4;
 
-    // Soft glow halo
-    const glow = ctx.createRadialGradient(sx + sw / 2, sy + sh / 2, 2, sx + sw / 2, sy + sh / 2, sw * 0.75);
-    glow.addColorStop(0, `rgba(0,255,100,${0.10 + pulse * 0.14})`);
+    // Glow halo (larger, more visible)
+    const glow = ctx.createRadialGradient(sx + sw / 2, sy + sh / 2, 2, sx + sw / 2, sy + sh / 2, sw);
+    glow.addColorStop(0, `rgba(0,255,100,${0.15 + pulse * 0.2})`);
     glow.addColorStop(1, 'rgba(0,255,100,0)');
     ctx.fillStyle = glow;
-    ctx.beginPath(); ctx.arc(sx + sw / 2, sy + sh / 2, sw * 0.75, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(sx + sw / 2, sy + sh / 2, sw, 0, Math.PI * 2); ctx.fill();
 
-    // Sign board
-    const borderAlpha = 0.6 + pulse * 0.4;
-    roundRect(ctx, sx, sy, sw, sh, 3,
-      'rgba(0,22,8,0.93)',
-      `rgba(80,255,130,${borderAlpha})`
+    // Sign board (taller, starting at left edge so it IS the exit button)
+    roundRect(ctx, sx, sy, sw, sh, 4,
+      'rgba(0,22,8,0.95)',
+      `rgba(80,255,130,${0.65 + pulse * 0.35})`
     );
 
-    // Arrow + label text
+    // Label text
     ctx.fillStyle = `rgba(255,215,0,${0.85 + pulse * 0.15})`;
-    ctx.font = 'bold 7px sans-serif';
+    ctx.font = 'bold 8px sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(fullLabel, sx + 4, sy + sh - 4);
+    ctx.fillText(fullLabel, sx + 6, sy + sh - 5);
     ctx.textAlign = 'left';
   }
 
@@ -3456,7 +3457,7 @@ class Game {
     const msg = this.message;
     const bw = 280, bx = (W - bw) / 2;
     const by = 12;
-    const bh = 40;
+    const bh = 48;
     roundRect(ctx, bx, by, bw, bh, 5, PALETTE.popupBg, PALETTE.popupBorder);
     ctx.fillStyle = PALETTE.white;
     ctx.font = '8px sans-serif';
