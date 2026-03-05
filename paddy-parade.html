@@ -2674,6 +2674,22 @@ class Game {
       return true;
     }
 
+    // 0b. Exit sign tap — tapping the sign directly exits the scene
+    {
+      const exitDefs = {
+        pub:        { flag: 'has_shamrock',  y: 129, exitTo: 'footrace'   },
+        footrace:   { flag: 'has_bib',       y: 129, exitTo: 'cathedral'  },
+        cathedral:  { flag: 'has_banner',    y: 154, exitTo: 'steamtown'  },
+        steamtown:  { flag: 'has_horseshoe', y: 136, exitTo: 'lackawanna' },
+        lackawanna: { flag: 'has_bulb',      y: 151, exitTo: 'parade'     },
+      };
+      const ed = exitDefs[this.sceneId];
+      if (ed && this.state.getFlag(ed.flag) && x <= 82 && y >= ed.y - 6 && y <= ed.y + 22) {
+        const exitSpot = this.currentScene && this.currentScene.hotspots.find(h => h.isExit && h.exitTo === ed.exitTo);
+        if (exitSpot) { this.handleVerb('go', exitSpot); return true; }
+      }
+    }
+
     // 1. Inventory bar?
     if (y >= INVENTORY_Y) {
       return this.ui.handleInventoryTap(x, y);
