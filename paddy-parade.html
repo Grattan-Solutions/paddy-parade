@@ -1629,7 +1629,7 @@ const SCENES = {
     hotspots: [
       { id: 'finish_banner',   name: 'Finish Line Banner',  rect: makeRect(100, 22, 120, 30), verbs: ['look'] },
       { id: 'reg_table',       name: 'Registration Table',  rect: makeRect(3, 128, 72, 32),   verbs: ['look'] },
-      { id: 'race_bib_pickup', name: 'Race Bib',            rect: makeRect(8, 130, 44, 20),   verbs: ['look', 'take'], item: 'race_bib', flag: 'has_bib', requireFlag: 'quiz_footrace_done' },
+      { id: 'race_bib_pickup', name: 'Race Bib',            rect: makeRect(76, 124, 36, 28),  verbs: ['look', 'take'], item: 'race_bib', flag: 'has_bib', requireFlag: 'quiz_footrace_done' },
       { id: 'exit_cathedral',  name: 'Cathedral Street',    rect: makeRect(0, 100, 18, 80),   verbs: ['look', 'use'], isExit: true, exitTo: 'cathedral' },
     ],
     dialogues: {
@@ -2001,8 +2001,8 @@ class DialogueSystem {
 
     if (this.lines.length > 0) {
       if (this.quizFeedbackTimer > 0) return true;
-      // Skip button (bottom-right of dialogue box): x 228..298, y 168..180
-      if (this.tapCount >= 1 && x >= 228 && x <= 298 && y >= 168 && y <= 180) {
+      // Skip button (above dialogue box): x 238..308, y 111..123
+      if (this.tapCount >= 1 && x >= 238 && x <= 308 && y >= 111 && y <= 123) {
         this.lines = [];
         this.lineIndex = 0;
         this.tapCount = 0;
@@ -2028,7 +2028,7 @@ class DialogueSystem {
 
   // Shared feedback panel coords — used by both _handleQuizTap and _renderQuiz
   static get FEEDBACK_BTN() {
-    return { x: W / 2 - 42, y: 216, w: 84, h: 14 };
+    return { x: W / 2 - 42, y: 205, w: 84, h: 14 };
   }
 
   _handleQuizTap(x, y) {
@@ -2111,13 +2111,13 @@ class DialogueSystem {
     ctx.font = '7px sans-serif';
     ctx.textAlign = 'right';
     ctx.fillText('Tap to continue ▶', bx + bw - 6, by + bh - 5);
-    // Skip button (appears after first tap)
+    // Skip button (above dialogue box, y=111..123)
     if (this.tapCount >= 1) {
-      roundRect(ctx, 228, 168, 70, 12, 2, 'rgba(0,30,0,0.85)', PALETTE.popupBorder);
+      roundRect(ctx, 238, 111, 70, 12, 2, 'rgba(0,30,0,0.85)', PALETTE.popupBorder);
       ctx.fillStyle = PALETTE.grassGreen;
       ctx.font = '6px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('Skip \u25b6\u25b6', 263, 177);
+      ctx.fillText('Skip \u25b6\u25b6', 273, 119);
     }
     ctx.textAlign = 'left';
   }
@@ -2343,38 +2343,29 @@ class UISystem {
   }
 
   _renderHUD(ctx) {
+    // All HUD elements live inside the top label bar (y=0..13) — no separate box
     const coinsFound = LUCKY_COINS.filter(c => this.game.state.getFlag(c.id)).length;
-    const hudW = 185;
-    ctx.fillStyle = 'rgba(0,20,0,0.75)';
-    ctx.fillRect(W - hudW - 2, 2, hudW, 24);
-    ctx.strokeStyle = PALETTE.popupBorder; ctx.lineWidth = 1;
-    ctx.strokeRect(W - hudW - 2, 2, hudW, 24);
-    // Score row
-    drawShamrock(ctx, W - hudW + 4, 10, 4, PALETTE.emerald);
+    // Shamrock icon + score number (right of label area, x≈134)
+    drawShamrock(ctx, 136, 7, 3, PALETTE.emerald);
     ctx.fillStyle = PALETTE.gold;
-    ctx.font = 'bold 7px sans-serif';
+    ctx.font = '6px sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(`Score: ${this.game.state.score}`, W - hudW + 14, 12);
+    ctx.fillText(`${this.game.state.score}`, 143, 9);
+    // Coin counter
     ctx.fillStyle = '#ffd700';
-    ctx.fillText(`\u{1FA99}${coinsFound}/6`, W - 44, 12);
-    // Progress dots row: has_bib, has_shamrock, has_banner, has_horseshoe, has_bulb
+    ctx.fillText(`\u{1FA99}${coinsFound}/6`, 178, 9);
+    // 5 progress dots (no text labels — too cramped at 13px height)
     const dotFlags = ['has_shamrock', 'has_bib', 'has_banner', 'has_horseshoe', 'has_bulb'];
-    const dotLabels = ['PUB', 'RACE', 'CAT', 'STM', 'LAC'];
-    const dotStartX = W - hudW + 6;
     for (let di = 0; di < 5; di++) {
-      const dx = dotStartX + di * 33;
+      const dx = 222 + di * 19;
       const collected = this.game.state.getFlag(dotFlags[di]);
       ctx.beginPath();
-      ctx.arc(dx, 20, 3, 0, Math.PI * 2);
-      ctx.fillStyle = collected ? PALETTE.gold : '#223322';
+      ctx.arc(dx, 7, 3, 0, Math.PI * 2);
+      ctx.fillStyle = collected ? PALETTE.gold : '#334433';
       ctx.fill();
-      ctx.strokeStyle = collected ? PALETTE.gold : '#446644';
+      ctx.strokeStyle = collected ? PALETTE.gold : '#557755';
       ctx.lineWidth = 0.5;
       ctx.stroke();
-      ctx.fillStyle = collected ? PALETTE.gold : '#446644';
-      ctx.font = '5px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(dotLabels[di], dx, 27);
     }
     ctx.textAlign = 'left';
   }
@@ -2775,17 +2766,22 @@ class Game {
     const s = this.sceneId;
     if (!s) return;
     if (s === 'footrace' && !this.state.getFlag('has_bib')) {
-      // Race bib #1 on the registration table
+      // Race bib #1 — hanging from barrier post, clearly separate from background table bibs
+      // Green glow to stand out
+      ctx.shadowColor = PALETTE.emerald; ctx.shadowBlur = 6;
       ctx.fillStyle = PALETTE.white;
-      ctx.fillRect(10, 132, 14, 16);
+      ctx.fillRect(79, 127, 30, 22);
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = PALETTE.emerald; ctx.lineWidth = 1.5;
+      ctx.strokeRect(79, 127, 30, 22);
       ctx.fillStyle = PALETTE.emerald;
-      ctx.font = 'bold 8px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText('1', 17, 143);
+      ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('1', 94, 142);
       ctx.textAlign = 'left';
-      // Pin marks
-      ctx.fillStyle = '#888';
-      ctx.beginPath(); ctx.arc(11, 133, 1, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(23, 133, 1, 0, Math.PI * 2); ctx.fill();
+      // Pin marks at top corners
+      ctx.fillStyle = '#aaa';
+      ctx.beginPath(); ctx.arc(80, 128, 1.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(108, 128, 1.5, 0, Math.PI * 2); ctx.fill();
     }
     if (s === 'pub' && !this.state.getFlag('has_shamrock')) {
       ctx.fillStyle = PALETTE.wood;
@@ -3354,7 +3350,7 @@ class Game {
       ctx.fillStyle = hoverLabel ? PALETTE.white : PALETTE.gold;
       ctx.font = '7px sans-serif';
       ctx.textAlign = 'center';
-      const labelAreaW = W - 130 - 8;
+      const labelAreaW = 120; // scene name constrained to left 120px; HUD draws in right portion
       ctx.fillText(hoverLabel || this.currentScene.name, labelAreaW / 2, 9, labelAreaW);
       ctx.textAlign = 'left';
       // In-game help button "?" top-left
