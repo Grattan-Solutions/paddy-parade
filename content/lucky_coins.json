@@ -1,0 +1,44 @@
+[
+  {
+    "id": "coin_pub",
+    "scene": "pub",
+    "x": 58,
+    "y": 125,
+    "dialogue": "☘ Fun Fact: The first St. Patrick's Day parade in America was held in Boston in 1737 — over a century before Scranton's parade began!"
+  },
+  {
+    "id": "coin_footrace",
+    "scene": "footrace",
+    "x": 280,
+    "y": 155,
+    "dialogue": "☘ Fun Fact: The Brian P. Kelly Memorial Footrace has been a St. Patrick's Day morning tradition in Scranton since 1978. Runners wear green head-to-toe!"
+  },
+  {
+    "id": "coin_cathedral",
+    "scene": "cathedral",
+    "x": 295,
+    "y": 135,
+    "dialogue": "☘ Fun Fact: St. Peter's Cathedral was built by Irish immigrant stonemasons in 1880. They used Scranton's own Nay Aug brownstone!"
+  },
+  {
+    "id": "coin_steamtown",
+    "scene": "steamtown",
+    "x": 65,
+    "y": 158,
+    "dialogue": "☘ Fun Fact: The Irish worked as 'powder monkeys' in the coal mines — their job was to set the dynamite charges. Dangerous work!"
+  },
+  {
+    "id": "coin_lackawanna",
+    "scene": "lackawanna",
+    "x": 20,
+    "y": 125,
+    "dialogue": "☘ Fun Fact: The Electric City sign was nearly demolished in 1974! Local citizens rallied to save it. Today it's on the National Register of Historic Places."
+  },
+  {
+    "id": "coin_parade",
+    "scene": "parade",
+    "x": 290,
+    "y": 130,
+    "dialogue": "☘ Fun Fact: The Scranton St. Patrick's Parade has run every year since 1962 — rain, snow, or shine. It draws over 20,000 spectators!"
+  }
+]

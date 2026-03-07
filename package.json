@@ -1,0 +1,26 @@
+{
+  "name": "scrantonparadegame",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "node build.js",
+    "extract": "node extract-content.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Grattan-Solutions/paddy-parade.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Grattan-Solutions/paddy-parade/issues"
+  },
+  "homepage": "https://github.com/Grattan-Solutions/paddy-parade#readme",
+  "dependencies": {
+    "playwright": "^1.58.2"
+  }
+}

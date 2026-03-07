@@ -1,0 +1,213 @@
+{
+  "race_director": {
+    "root": {
+      "lines": [
+        "Paddy! Grand to see ye at the footrace. The Brian P. Kelly Memorial — started in his honor back in 1978.",
+        "Brian was a beloved Scranton man — ran the parade every year, rain or shine.",
+        "We've got a spare race bib for ye — number one, no less! — but first, prove you know your Irish running history!"
+      ],
+      "next": "quiz1"
+    },
+    "quiz1": {
+      "quizFromBank": {
+        "scene": "footrace"
+      },
+      "next": "farewell"
+    },
+    "farewell": {
+      "lines": [
+        "Well run, Paddy! That green bib is yours — wear it proudly on the float!",
+        "Now get yourself to St. Peter's — Father Callahan is expecting ye!"
+      ],
+      "doneFlag": "quiz_footrace_done"
+    },
+    "already_done": {
+      "lines": [
+        "The bib is yours, Paddy! Go get it and head up to the Cathedral!"
+      ]
+    }
+  },
+  "siobhan": {
+    "root": {
+      "lines": [
+        "Top o' the mornin', Paddy! Oh, I'm so glad ye're here!",
+        "The St. Patrick's Parade starts at noon — but we're in terrible trouble!",
+        "Grand Marshal O'Brien says we're missing FIVE essential items for the parade!",
+        "Without them, the parade can't begin. Scranton would be heartbroken!",
+        "We need: a Shamrock Bouquet, the Parade Banner, a Lucky Horseshoe, a Green Light Bulb — and a Race Bib from the Kelly Memorial Footrace!",
+        "Before ye go, Paddy — I've a quick quiz for ye. Show everyone ye know your Irish history!"
+      ],
+      "next": "quiz1"
+    },
+    "quiz1": {
+      "quizFromBank": {
+        "scene": "pub"
+      },
+      "next": "farewell"
+    },
+    "farewell": {
+      "lines": [
+        "Brilliant! Now, there's a Shamrock Bouquet right there on the table — take it!",
+        "Then pop over to the Kelly Footrace, St. Peter's Cathedral, Steamtown, and Lackawanna Avenue.",
+        "Hurry, Paddy! The clock is ticking! Erin go Bragh!"
+      ],
+      "doneFlag": "quiz_pub_done"
+    },
+    "already_done": {
+      "lines": [
+        "Ye have everything from here, Paddy! Now go — the parade needs ye!"
+      ]
+    }
+  },
+  "father_callahan": {
+    "root": {
+      "lines": [
+        "Ah, Paddy! God bless ye! Are ye here about the parade?",
+        "We have Parade Day Mass at 11 o'clock sharp — always have. The whole parish turns out before joining the march!",
+        "The Irish-Catholic community has marched in this parade for over 150 years.",
+        "Our parish came here fleeing the Great Famine of 1845 to 1852. Scranton gave us hope.",
+        "I have the Parade Banner right here — but first, let's see if ye know your Irish history!"
+      ],
+      "next": "quiz1"
+    },
+    "quiz1": {
+      "quizFromBank": {
+        "scene": "cathedral"
+      },
+      "next": "quiz2"
+    },
+    "quiz2": {
+      "quizFromBank": {
+        "scene": "cathedral"
+      },
+      "next": "farewell"
+    },
+    "farewell": {
+      "lines": [
+        "Well done! The Parade Banner is over there by the wall — go ahead and take it.",
+        "God bless ye, Paddy. May the road rise up to meet ye!"
+      ],
+      "doneFlag": "quiz_cathedral_done"
+    },
+    "already_done": {
+      "lines": [
+        "May God be with ye, Paddy! Take the banner and go!"
+      ]
+    }
+  },
+  "seamus": {
+    "root": {
+      "lines": [
+        "Ho there, young Paddy! Here to see the old steam engines?",
+        "My grandfather came from County Mayo during the Famine. Worked the coal mines here.",
+        "Then his son — my father — worked the railroads. Irish hands built this country, they did!",
+        "Tens of thousands of Irish immigrants came to the Wyoming Valley. Coal and steel, that was Scranton.",
+        "Before I give ye what ye need, let's see if ye know the story!"
+      ],
+      "next": "quiz1"
+    },
+    "quiz1": {
+      "quizFromBank": {
+        "scene": "steamtown"
+      },
+      "next": "quiz2"
+    },
+    "quiz2": {
+      "quizFromBank": {
+        "scene": "steamtown"
+      },
+      "next": "farewell"
+    },
+    "farewell": {
+      "lines": [
+        "Sharp as a tack! That Lucky Horseshoe on the fence — it's yours for the parade.",
+        "Open end up, now! That's how ye keep the luck inside!",
+        "Give 'em a good parade, Paddy. Make the old Irish proud!"
+      ],
+      "doneFlag": "quiz_steamtown_done"
+    },
+    "already_done": {
+      "lines": [
+        "Go on, Paddy! Take that horseshoe and march on!"
+      ]
+    }
+  },
+  "maggie": {
+    "root": {
+      "lines": [
+        "Paddy! Thank goodness! We've been looking for someone to help!",
+        "The Electric City sign is lit up green just for the parade — isn't it gorgeous?",
+        "Oh! I just remembered — someone left a Green Light Bulb on the sidewalk over there.",
+        "We need it to light the parade route! But first — parade trivia time!"
+      ],
+      "next": "quiz1"
+    },
+    "quiz1": {
+      "quizFromBank": {
+        "scene": "lackawanna"
+      },
+      "next": "quiz2"
+    },
+    "quiz2": {
+      "quizFromBank": {
+        "scene": "lackawanna"
+      },
+      "next": "farewell"
+    },
+    "farewell": {
+      "lines": [
+        "Wonderful! The green light bulb is right over there — grab it quick!",
+        "Then head to Mulberry and Wyoming to find Grand Marshal O'Brien.",
+        "You're almost there, Paddy! The parade is counting on ye!"
+      ],
+      "doneFlag": "quiz_lackawanna_done"
+    },
+    "already_done": {
+      "lines": [
+        "You've got everything! Go find the Grand Marshal — hurry!"
+      ]
+    }
+  },
+  "marshal": {
+    "root": {
+      "lines": [
+        "Paddy, lad! I've been waiting for ye!",
+        "The parade cannot begin without those five items.",
+        "Every St. Patrick's Parade in Scranton tells our story — the story of Irish immigrants.",
+        "They came with nothing but their faith and their courage. And they built this city.",
+        "Do ye have everything? Let's find out with one last bit of trivia!"
+      ],
+      "next": "quiz1"
+    },
+    "quiz1": {
+      "quizFromBank": {
+        "scene": "parade"
+      },
+      "next": "quiz2"
+    },
+    "quiz2": {
+      "quizFromBank": {
+        "scene": "parade"
+      },
+      "next": "check_items"
+    },
+    "check_items": {
+      "checkItems": true
+    },
+    "items_ready": {
+      "lines": [
+        "All five items! The Shamrock Bouquet, the Parade Banner, the Lucky Horseshoe, the Green Light Bulb — and the Race Bib from this morning's footrace!",
+        "Scranton, are ye ready?! LET THE PARADE BEGIN!!!",
+        "ERIN GO BRAGH!"
+      ],
+      "winGame": true
+    },
+    "items_missing": {
+      "lines": [
+        "Hmm, we're still missing some items, Paddy.",
+        "Check your inventory — you'll need all five before we can start!",
+        "The Shamrock Bouquet, Parade Banner, Lucky Horseshoe, Green Light Bulb, and Race Bib."
+      ]
+    }
+  }
+}
